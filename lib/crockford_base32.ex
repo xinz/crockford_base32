@@ -25,7 +25,7 @@ defmodule CrockfordBase32 do
 
   ## Options
 
-    * `:checksum`, optional, boolean, by defaults to `false`, if set it as `true` will calculate a check
+    * `:checksum`, optional, a boolean, by defaults to `false`, if set it as `true` will calculate a check
       symbol and append it to the return string.
     * `:split_size`, optional, a positive integer, if set it will use it as a step size to split
       the return string with hyphen(s).
@@ -47,7 +47,9 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Expect to decode an integr from the input string, all hyphen(s) removed and internally transfer into uppercase before decode.
+  Decode the encoded to an integer, all hyphen(s) are removed and ignore the encoded's case.
+
+  If the encoded string be with a check symbol, require to use `checksum: true` in decoding.
 
   ## Example
 
@@ -60,9 +62,8 @@ defmodule CrockfordBase32 do
 
   ## Options
   
-    * `:checksum`, optional, by defaults to `false` means expect input the encoded string without a check symbol in its tail,
-      if set it as `true`, please ensure input encoded is a string be with a check symbol, or it will return 
-      `{:error, "invalid_checksum"}`.
+    * `:checksum`, optional, a boolean, by defaults to `false` means expect input the encoded string without a check symbol in its tail,
+      if set it as `true`, please ensure input encoded is a string be with a check symbol, or return  `{:error, "invalid_checksum"}`.
   """
   @spec decode_to_integer(String.t(), Keyword.t()) :: {:ok, integer} | {:error, String.t()}
   def decode_to_integer(string, opts \\ [])
@@ -77,7 +78,9 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Expect to decode a string from the input string, all hyphen(s) removed and internally transfer into uppercase before decode.
+  Decode the encoded to an string, all hyphen(s) are removed and ignore the encoded's case.
+
+  If the encoded string be with a check symbol, require to use `checksum: true` in decoding.
 
   ## Example
 
