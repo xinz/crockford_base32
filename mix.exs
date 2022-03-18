@@ -12,6 +12,7 @@ defmodule CrockfordBase32.MixProject do
       deps: deps(),
       description: description(),
       package: package(),
+      elixirc_paths: elixirc_paths(Mix.env()),
       docs: docs()
     ]
   end
@@ -57,4 +58,7 @@ defmodule CrockfordBase32.MixProject do
       ]
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 end

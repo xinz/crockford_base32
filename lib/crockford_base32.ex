@@ -5,6 +5,19 @@ defmodule CrockfordBase32 do
 
   import Bitwise, only: [bor: 2, bsl: 2]
 
+  defmacro __using__(opts \\ []) do
+    alias CrockfordBase32.FixedEncoding
+    opts = Macro.prewalk(opts, &Macro.expand(&1, __CALLER__))
+    bits_size = Keyword.get(opts, :bits_size)
+
+    if bits_size != nil do
+      quote do
+        require FixedEncoding
+        FixedEncoding.generate_encode(unquote(bits_size))
+      end
+    end
+  end
+
   @doc """
   Encode an integer or a string in Crockford's Base32.
 
@@ -247,7 +260,7 @@ defmodule CrockfordBase32 do
   alphabet = encoding_symbol_charlist ++ check_symbol_charlist
   @compile {:inline, e: 1}
   for {alphabet, index} <- Enum.with_index(alphabet) do
-    defp e(unquote(index)), do: unquote(alphabet)
+    def e(unquote(index)), do: unquote(alphabet)
   end
 
   @compile {:inline, d: 1}
