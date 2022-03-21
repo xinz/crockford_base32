@@ -1,12 +1,10 @@
 # CrockfordBase32
 
-An Elixir Implementation of Douglas Crockford's Base32 encode and decode.
+An Elixir Implementation of Douglas Crockford's Base32 encoding.
 
 Please see [https://www.crockford.com/base32.html](https://www.crockford.com/base32.html).
 
-> Base 32 is a textual 32-symbol notation for expressing numbers in a form that can be conveniently and accurately transmitted between humans and computer systems. It can be used for out of band communication of public keys.
-
-This library can encode an integer or a string in Crockford's Base32, and also provide the way to decode the corresponding encoded.
+This library can encode an integer or a binary in Crockford's Base32, and also provide the way to decode the corresponding encoded.
 
 ## Installation
 
@@ -85,33 +83,33 @@ iex> CrockfordBase32.decode_to_integer("16J1", checksum: true)
 Decode the encoded to a string:
 
 ```elixir
-iex> CrockfordBase32.decode_to_string("C5H66")
+iex> CrockfordBase32.decode_to_binary("C5H66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_string("C5H-66")
+iex> CrockfordBase32.decode_to_binary("C5H-66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_string("c5H-66")
+iex> CrockfordBase32.decode_to_binary("c5H-66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_string("c5h-66")
+iex> CrockfordBase32.decode_to_binary("c5h-66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_string("c5h66")
+iex> CrockfordBase32.decode_to_binary("c5h66")
 {:ok, "abc"}
 ```
 
 With a check symbol, and decode the encoded to a string:
 
 ```elixir
-iex> CrockfordBase32.decode_to_string("C5H66C", checksum: true)
+iex> CrockfordBase32.decode_to_binary("C5H66C", checksum: true)
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_string("C5H66D", checksum: true)
+iex> CrockfordBase32.decode_to_binary("C5H66D", checksum: true)
 {:error, "invalid_checksum"}
 ```
 
 Some invalid cases:
 
 ```elixir
-iex> CrockfordBase32.decode_to_string("F1")
+iex> CrockfordBase32.decode_to_binary("F1")
 {:error, "invalid"}
-iex> CrockfordBase32.decode_to_string(<<>>)
+iex> CrockfordBase32.decode_to_binary(<<>>)
 {:error, "invalid"}
 iex> CrockfordBase32.decode_to_integer(<<>>)
 {:error, "invalid"}
@@ -119,7 +117,7 @@ iex> CrockfordBase32.decode_to_integer(<<>>)
 
 ## Credits
 
-Thanks to these libraries or tools are very helpful in understanding and reference. 
+These libraries or tools are very helpful in understanding and reference, thanks!
 
 - [shiguredo/base32_clockwork](https://github.com/shiguredo/base32_clockwork)
 - [voldy/base32_crockford](https://github.com/voldy/base32_crockford)

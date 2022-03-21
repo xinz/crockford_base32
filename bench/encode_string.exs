@@ -1,13 +1,13 @@
 Benchee.run(
   %{
-    "this lib encode small string" => fn -> CrockfordBase32.encode("abcdefg") end,
-    "other lib encode small string" => fn -> :base32_crockford.encode("abcdefg") end
+    "self encode small string" => fn -> CrockfordBase32.encode("abcdefg") end,
+    "other encode small string" => fn -> :base32_crockford.encode("abcdefg") end
   }
 )
 Benchee.run(
   %{
-    "this lib encode small string with checksum" => fn -> CrockfordBase32.encode("abcdefg", checksum: true) end,
-    "other lib encode small string with checksum" => fn -> :base32_crockford.encode_check("abcdefg") end
+    "self encode small string with checksum" => fn -> CrockfordBase32.encode("abcdefg", checksum: true) end,
+    "other encode small string with checksum" => fn -> :base32_crockford.encode_check("abcdefg") end
   }
 )
 
@@ -15,14 +15,23 @@ string_128 = "Y2Wfub8SfiN_EHa9gvc4IIVH3RJ1NFm3UJpjovqGiOIMyDSuUOgBAIjHyWlSyref5r
 
 Benchee.run(
   %{
-    "this lib encode 128 size string" => fn -> CrockfordBase32.encode(string_128) end,
-    "other lib encode 128 size string" => fn -> :base32_crockford.encode(string_128) end
+    "self encode 128 size string" => fn -> CrockfordBase32.encode(string_128) end,
+    "other encode 128 size string" => fn -> :base32_crockford.encode(string_128) end
   }
 )
 
 Benchee.run(
   %{
-    "this lib encode 128 size string with checksum" => fn -> CrockfordBase32.encode(string_128, checksum: true) end,
-    "other lib encode 128 size string with checksum" => fn -> :base32_crockford.encode_check(string_128) end
+    "self encode 128 size string with checksum" => fn -> CrockfordBase32.encode(string_128, checksum: true) end,
+    "other encode 128 size string with checksum" => fn -> :base32_crockford.encode_check(string_128) end
+  }
+)
+
+bytes = <<System.system_time(:millisecond)::unsigned-size(48)>>
+
+Benchee.run(
+  %{
+    "self encode 48 size bytes" => fn -> CrockfordBase32.encode(bytes) end,
+    "other encode 48 size bytes" => fn -> :base32_crockford.encode(bytes) end
   }
 )

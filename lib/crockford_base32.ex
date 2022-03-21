@@ -48,14 +48,14 @@ defmodule CrockfordBase32 do
   def encode(value, opts \\ [])
   def encode(value, opts) when is_integer(value) do
     value
-    |> integer_to_encode()
     |> may_checksum(Keyword.get(opts, :checksum, false))
+    |> integer_to_encode()
     |> may_split_by_split_size_with_hyphen(Keyword.get(opts, :split_size))
   end
   def encode(value, opts) when is_binary(value) do
     value
-    |> bytes_to_encode()
     |> may_checksum(Keyword.get(opts, :checksum, false))
+    |> bytes_to_encode()
     |> may_split_by_split_size_with_hyphen(Keyword.get(opts, :split_size))
   end
 
@@ -168,17 +168,32 @@ defmodule CrockfordBase32 do
     end
   end
 
-  defp integer_to_encode(value) do
-    encoded = integer_to_encode(value, [])
-    {encoded, value}
+  defp integer_to_encode({value, checksum}) do
+    integer_to_encode(value, checksum)
   end
 
   defp integer_to_encode(0, []), do: "0"
+  defp integer_to_encode(0, ["0"]), do: "00"
   defp integer_to_encode(0, encoded), do: to_string(encoded)
   defp integer_to_encode(value, encoded) when value > 0 do
     remainder = rem(value, 32)
     value = div(value, 32)
     integer_to_encode(value, [e(remainder) | encoded])
+  end
+
+  defp encode_bytes_maybe_padding(value, expected_size, checksum) do
+    do_encode_bytes_maybe_padding(value, expected_size, checksum)
+  end
+
+  defp do_encode_bytes_maybe_padding(0, _, []), do: "0"
+  defp do_encode_bytes_maybe_padding(0, 0, acc), do: to_string(acc) 
+  defp do_encode_bytes_maybe_padding(0, size, acc) when size > 0 do
+    encode_bytes_maybe_padding(0, size - 1, [e(0) | acc])
+  end
+  defp do_encode_bytes_maybe_padding(value, size, acc) do
+    remainder = rem(value, 32)
+    value = div(value, 32)
+    encode_bytes_maybe_padding(value, size-1, [e(remainder) | acc])
   end
 
   defp bytes_to_integer_nopadding(<<>>, n), do: n 
@@ -215,23 +230,13 @@ defmodule CrockfordBase32 do
     bytes_to_integer_with_padding(rest, bsl(n, 5) |> bor(bytes))
   end
 
-  defp bytes_to_encode(bytes) do
-    {encoded, _str_as_int} =
-      bytes
-      |> bytes_to_integer_with_padding(0)
-      |> integer_to_encode()
-      |> may_pad_leading_with_zero(bytes)
-    {encoded, bytes}
+  defp bytes_to_encode({bytes, checksum}) do
+    bytes
+    |> bytes_to_integer_with_padding(0)
+    |> encode_bytes_maybe_padding(encoded_length_of_bytes(bytes), checksum)
   end
 
-  defp may_pad_leading_with_zero({encoded, value}, bytes) do
-    {
-      String.pad_leading(encoded, encoded_length(bytes), "0"),
-      value
-    }
-  end
-
-  defp encoded_length(bytes) do
+  defp encoded_length_of_bytes(bytes) do
     bit_size = bit_size(bytes)
     base = div(bit_size, 5)
     case rem(bit_size, 5) do
@@ -240,18 +245,29 @@ defmodule CrockfordBase32 do
     end
   end
 
-  defp may_checksum({encoded, _input}, false), do: encoded
-  defp may_checksum({encoded, input}, true) when is_integer(input) do
-    checksum(encoded, input)
+  defp may_checksum(input, true) when is_integer(input) do
+    {input, [<<calculate_checksum(input)::integer>>]}
   end
-  defp may_checksum({encoded, input}, true) when is_bitstring(input) do
-    input_int = bytes_to_integer_nopadding(input, 0)
-    checksum(encoded, input_int)
+  defp may_checksum(input, true) when is_binary(input) do
+    int = bytes_to_integer_nopadding(input, 0)
+    {input, [<<calculate_checksum(int)::integer>>]}
+  end
+  defp may_checksum(input, _) do
+    {input, []}
   end
 
-  defp checksum(encoded, input) do
-    <<encoded::binary, calculate_checksum(input)::integer>>
-  end
+  #defp may_checksum({encoded, _input}, false), do: encoded
+  #defp may_checksum({encoded, input}, true) when is_integer(input) do
+  #  checksum(encoded, input)
+  #end
+  #defp may_checksum({encoded, input}, true) when is_bitstring(input) do
+  #  input_int = bytes_to_integer_nopadding(input, 0)
+  #  checksum(encoded, input_int)
+  #end
+
+  #defp checksum(encoded, input) do
+  #  <<encoded::binary, calculate_checksum(input)::integer>>
+  #end
 
   defp calculate_checksum(int) do
     int |> rem(37) |> e()
