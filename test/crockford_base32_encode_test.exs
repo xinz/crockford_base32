@@ -61,4 +61,12 @@ defmodule CrockfordBase32EncodeTest do
     assert CrockfordBase32.encode("abc", split_size: 7, checksum: true) == "C5H66C"
   end
 
+  test "encode binary with zero pad leading" do
+    # from <<System.system_time(:millisecond)::unsigned-size(48)>>
+    bytes = <<1, 127, 155, 255, 141, 144>>
+    assert CrockfordBase32.encode(bytes) == "05ZSQZWDJ0"
+    bytes = <<1, 2, 3>>
+    assert CrockfordBase32.encode(bytes) == "04106"
+  end
+
 end

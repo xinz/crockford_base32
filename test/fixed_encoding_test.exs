@@ -12,6 +12,8 @@ defmodule CrockfordBase32FixedEncodingTest do
   test "encode 128-bits" do
     data = <<1, 127, 155, 239, 108, 123, 101, 162, 98, 133, 136, 76, 221, 14, 158, 253>>
     assert bit_size(data) == 128
-    assert Encoding.Fixed128.encode(data) == "05ZSQVVCFDJT4RM5H16DT3MYZM"
+    encoded = Encoding.Fixed128.encode(data)
+    assert encoded == "05ZSQVVCFDJT4RM5H16DT3MYZM"
+    assert encoded == CrockfordBase32.encode(data)
   end
 end

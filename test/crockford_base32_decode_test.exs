@@ -45,6 +45,11 @@ defmodule CrockfordBase32DecodeTest do
     assert CrockfordBase32.decode_to_integer(<<>>) == {:error, "invalid"}
   end
 
+  test "decode with zero pad leading" do
+    assert CrockfordBase32.decode_to_string("05ZSQZWDJ0") == {:ok, <<1, 127, 155, 255, 141, 144>>}
+    assert CrockfordBase32.decode_to_string("04106") == {:ok, <<1, 2, 3>>}
+  end
+
   defp assert_encode_and_decode_string(items, opts \\ []) do
     Enum.map(items, fn item ->
       {:ok, decoded} = CrockfordBase32.encode(item, opts) |> CrockfordBase32.decode_to_string(opts)
