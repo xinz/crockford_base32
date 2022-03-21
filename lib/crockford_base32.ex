@@ -97,22 +97,22 @@ defmodule CrockfordBase32 do
 
   ## Example
 
-      iex> CrockfordBase32.decode_to_string("C5H66")
+      iex> CrockfordBase32.decode_to_binary("C5H66")
       {:ok, "abc"}
-      iex> CrockfordBase32.decode_to_string("C5H66C", checksum: true)
+      iex> CrockfordBase32.decode_to_binary("C5H66C", checksum: true)
       {:ok, "abc"}
-      iex> CrockfordBase32.decode_to_string("C5H66D", checksum: true)
+      iex> CrockfordBase32.decode_to_binary("C5H66D", checksum: true)
       {:error, "invalid_checksum"}
 
   ## Options
 
   The same to the options of `decode_to_integer/2`.
   """
-  def decode_to_string(string, opts \\ [])
-  def decode_to_string(<<>>, _opts) do
+  def decode_to_binary(string, opts \\ [])
+  def decode_to_binary(<<>>, _opts) do
     {:error, "invalid"}
   end
-  def decode_to_string(string, opts) when is_bitstring(string) do
+  def decode_to_binary(string, opts) when is_binary(string) do
     string
     |> remove_hyphen_and_upcase()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))

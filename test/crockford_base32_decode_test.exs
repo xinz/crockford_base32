@@ -5,17 +5,17 @@ defmodule CrockfordBase32DecodeTest do
     # keep the input string size is 5 (or multiples of 5) 
     # can make this test case
     items = ["YPgeI`r^yD", "abcdefghij", "IhOkH", "EuftlDISMiPbjNLywRvpT`WQY"]
-    assert_encode_and_decode_string(items)
+    assert_encode_and_decode_binary(items)
   end
 
   test "decode string with padding" do
     items = ["sMGVjkvqKJdf", "_yqdSLBtQRMNZ", "U[bV]\\sBlEXoNpwvDIfMx"]
-    assert_encode_and_decode_string(items)
+    assert_encode_and_decode_binary(items)
   end
 
   test "decode string with checksum" do
     items = ["abc", "1234567", "CFT[Gf\\LHXcWqQYPAbr]", "zwsvcyrbgknletaxji"]
-    assert_encode_and_decode_string(items, checksum: true)
+    assert_encode_and_decode_binary(items, checksum: true)
   end
 
   test "decode integer" do
@@ -29,12 +29,12 @@ defmodule CrockfordBase32DecodeTest do
   end
 
   test "input invalid to decode string" do
-    assert CrockfordBase32.decode_to_string("C5H66") == {:ok, "abc"}
-    assert CrockfordBase32.decode_to_string("C5H66C", checksum: true) == {:ok, "abc"}
-    assert CrockfordBase32.decode_to_string("C5H66C") == {:error, "invalid"}
-    assert CrockfordBase32.decode_to_string("C5H66", checksum: true) == {:error, "invalid"}
-    assert CrockfordBase32.decode_to_string("C5H66D", checksum: true) == {:error, "invalid_checksum"}
-    assert CrockfordBase32.decode_to_string(<<>>) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_binary("C5H66") == {:ok, "abc"}
+    assert CrockfordBase32.decode_to_binary("C5H66C", checksum: true) == {:ok, "abc"}
+    assert CrockfordBase32.decode_to_binary("C5H66C") == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_binary("C5H66", checksum: true) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_binary("C5H66D", checksum: true) == {:error, "invalid_checksum"}
+    assert CrockfordBase32.decode_to_binary(<<>>) == {:error, "invalid"}
   end
 
   test "input invalid to decode integer" do
@@ -46,13 +46,13 @@ defmodule CrockfordBase32DecodeTest do
   end
 
   test "decode with zero pad leading" do
-    assert CrockfordBase32.decode_to_string("05ZSQZWDJ0") == {:ok, <<1, 127, 155, 255, 141, 144>>}
-    assert CrockfordBase32.decode_to_string("04106") == {:ok, <<1, 2, 3>>}
+    assert CrockfordBase32.decode_to_binary("05ZSQZWDJ0") == {:ok, <<1, 127, 155, 255, 141, 144>>}
+    assert CrockfordBase32.decode_to_binary("04106") == {:ok, <<1, 2, 3>>}
   end
 
-  defp assert_encode_and_decode_string(items, opts \\ []) do
+  defp assert_encode_and_decode_binary(items, opts \\ []) do
     Enum.map(items, fn item ->
-      {:ok, decoded} = CrockfordBase32.encode(item, opts) |> CrockfordBase32.decode_to_string(opts)
+      {:ok, decoded} = CrockfordBase32.encode(item, opts) |> CrockfordBase32.decode_to_binary(opts)
       assert item == decoded
     end)
   end
