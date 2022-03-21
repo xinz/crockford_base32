@@ -19,12 +19,12 @@ defmodule CrockfordBase32DecodeTest do
   end
 
   test "decode integer" do
-    items = [123, 1, 6490587123, 5111]
+    items = [123, 1, 6_490_587_123, 5111]
     assert_encode_and_decode_integer(items)
   end
 
   test "decode integer with checksum" do
-    items = [1234567, 0, 8612493570, 5111]
+    items = [1_234_567, 0, 8_612_493_570, 5111]
     assert_encode_and_decode_integer(items, checksum: true)
   end
 
@@ -33,7 +33,10 @@ defmodule CrockfordBase32DecodeTest do
     assert CrockfordBase32.decode_to_binary("C5H66C", checksum: true) == {:ok, "abc"}
     assert CrockfordBase32.decode_to_binary("C5H66C") == {:error, "invalid"}
     assert CrockfordBase32.decode_to_binary("C5H66", checksum: true) == {:error, "invalid"}
-    assert CrockfordBase32.decode_to_binary("C5H66D", checksum: true) == {:error, "invalid_checksum"}
+
+    assert CrockfordBase32.decode_to_binary("C5H66D", checksum: true) ==
+             {:error, "invalid_checksum"}
+
     assert CrockfordBase32.decode_to_binary(<<>>) == {:error, "invalid"}
   end
 
@@ -41,7 +44,10 @@ defmodule CrockfordBase32DecodeTest do
     assert CrockfordBase32.decode_to_integer("16J") == {:ok, 1234}
     assert CrockfordBase32.decode_to_integer("16JD", checksum: true) == {:ok, 1234}
     assert CrockfordBase32.decode_to_integer("16JD") == {:ok, 39501}
-    assert CrockfordBase32.decode_to_integer("16J1", checksum: true) == {:error, "invalid_checksum"}
+
+    assert CrockfordBase32.decode_to_integer("16J1", checksum: true) ==
+             {:error, "invalid_checksum"}
+
     assert CrockfordBase32.decode_to_integer(<<>>) == {:error, "invalid"}
   end
 
@@ -52,16 +58,19 @@ defmodule CrockfordBase32DecodeTest do
 
   defp assert_encode_and_decode_binary(items, opts \\ []) do
     Enum.map(items, fn item ->
-      {:ok, decoded} = CrockfordBase32.encode(item, opts) |> CrockfordBase32.decode_to_binary(opts)
+      {:ok, decoded} =
+        CrockfordBase32.encode(item, opts) |> CrockfordBase32.decode_to_binary(opts)
+
       assert item == decoded
     end)
   end
 
   defp assert_encode_and_decode_integer(items, opts \\ []) do
     Enum.map(items, fn item ->
-      {:ok, decoded} = CrockfordBase32.encode(item, opts) |> CrockfordBase32.decode_to_integer(opts)
+      {:ok, decoded} =
+        CrockfordBase32.encode(item, opts) |> CrockfordBase32.decode_to_integer(opts)
+
       assert item == decoded
     end)
   end
-
 end

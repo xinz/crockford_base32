@@ -4,9 +4,9 @@ defmodule CrockfordBase32FixedEncodingTest do
   alias CrockfordBase32.Encoding
 
   test "encode 8-bits" do
-    assert Encoding.Fixed8.encode("b")  == CrockfordBase32.encode("b")
-    assert Encoding.Fixed8.encode("c")  == CrockfordBase32.encode("c")
-    assert Encoding.Fixed8.encode("z")  == CrockfordBase32.encode("z")
+    assert Encoding.Fixed8.encode("b") == CrockfordBase32.encode("b")
+    assert Encoding.Fixed8.encode("c") == CrockfordBase32.encode("c")
+    assert Encoding.Fixed8.encode("z") == CrockfordBase32.encode("z")
   end
 
   test "encode 128-bits" do

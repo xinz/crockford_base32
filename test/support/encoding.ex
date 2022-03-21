@@ -1,5 +1,4 @@
 defmodule CrockfordBase32.Encoding do
-
   defmodule Fixed8 do
     use CrockfordBase32,
       bits_size: 8
@@ -10,4 +9,3 @@ defmodule CrockfordBase32.Encoding do
       bits_size: 128
   end
 end
-

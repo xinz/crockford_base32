@@ -7,9 +7,9 @@ defmodule CrockfordBase32.FixedEncoding do
   defmacro generate_encode(bits_size) when bits_size != nil do
     rem = rem(bits_size, @block_size)
     arg_num = div(bits_size, @block_size)
-  
+
     pattern_match_of_arg = generate_encode_args(arg_num, rem)
-       
+
     body_expr = generate_body(arg_num, rem)
 
     quote do
@@ -23,10 +23,11 @@ defmodule CrockfordBase32.FixedEncoding do
     arg_num
     |> generate_binary_pattern_match_args()
     |> List.insert_at(
-      -1, 
-      {:"::", [], [{:"#{@arg}#{arg_num+1}", [], nil}, rem]}
+      -1,
+      {:"::", [], [{:"#{@arg}#{arg_num + 1}", [], nil}, rem]}
     )
   end
+
   defp generate_encode_args(arg_num, _rem) do
     generate_binary_pattern_match_args(arg_num)
   end
@@ -42,10 +43,15 @@ defmodule CrockfordBase32.FixedEncoding do
     |> Macro.generate_arguments(nil)
     |> List.insert_at(
       -1,
-      {:<<>>, [], [{:"::", [], [Macro.var(:"#{@arg}#{arg_num+1}", nil), rem]}, {:"::", [], [0, {:size, [], [@block_size - rem]}]}]}
+      {:<<>>, [],
+       [
+         {:"::", [], [Macro.var(:"#{@arg}#{arg_num + 1}", nil), rem]},
+         {:"::", [], [0, {:size, [], [@block_size - rem]}]}
+       ]}
     )
     |> body_expr()
   end
+
   defp generate_body(arg_num, _rem) do
     arg_num
     |> Macro.generate_arguments(nil)
@@ -59,9 +65,9 @@ defmodule CrockfordBase32.FixedEncoding do
           <<x::5>> = unquote(item)
           CrockfordBase32.e(x)
         end
-      item->
+
+      item ->
         quote do: CrockfordBase32.e(unquote(item))
     end)
   end
-
 end

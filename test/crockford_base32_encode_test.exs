@@ -32,7 +32,9 @@ defmodule CrockfordBase32EncodeTest do
     assert CrockfordBase32.encode("base") == "C9GQ6S8"
     assert CrockfordBase32.encode("HelloTest123") == "91JPRV3FAHJQ6X1H68SG"
     assert CrockfordBase32.encode("z0VtEaUte3MR_901zB4cM") == "F8R5CX25C5AQ8S9K9N95YE9G65X44D339M"
-    assert CrockfordBase32.encode("mS_hVej7Fa1yzCn_qaH5dgnBU9F8dobt") == "DN9NYT2PCNN3EHK165WQMGVEBXRP2J1NCHKPWGJN7533GS3FC9T0"
+
+    assert CrockfordBase32.encode("mS_hVej7Fa1yzCn_qaH5dgnBU9F8dobt") ==
+             "DN9NYT2PCNN3EHK165WQMGVEBXRP2J1NCHKPWGJN7533GS3FC9T0"
 
     assert CrockfordBase32.encode("测试") == "WTTRQT5FJM"
     assert CrockfordBase32.encode("テスト") == "WE1RDRW2Q7HR720"
@@ -43,10 +45,18 @@ defmodule CrockfordBase32EncodeTest do
     assert CrockfordBase32.encode("0", checksum: true) == "60B"
     assert CrockfordBase32.encode("base", checksum: true) == "C9GQ6S8J"
     assert CrockfordBase32.encode("abc", checksum: true) == "C5H66C"
-    assert CrockfordBase32.encode("9PfOBEizSF58uAvY1qo_3_xWgsqs06LND99HPFZsEWtd5oOpFoQqWa6LY_mpe5Hv", checksum: true) ==
-      "7586CKT28NMQMMT66MW7AGBPB4RQ2VTZ6DFQGNV7EDRQ6C1P9H748E9S9184CPKK8NBQ8S1NDX7Q0HKFA5RNER9P9HCNYVBGCMTMGXGB"
-    assert CrockfordBase32.encode("7Bs0pzuNyEYLhkQ9fXI76-quEhpn9MRHfUViVAVQXR3AaRdWMR7K--8MLOL64vipDkPpZ1x3jrxRi6crIDzO4iXkYMn5fAjKWV1ApH5svrFmCdMj_dXBscgRuEIWSwiL", checksum: true) ==
-      "6X176C3GF9TMWYA5B566GTTH75K5GJ9Q6RPQ2XA5D1R6WEADA946CNAPD5B42NJHB1936GB1A9J5EKAJ6X5JTB9R9N64YK1P6HV6JW24DD870PHHF0SPMWKRA9MKCRVJ9527MKSMD5C6PPADDRTPCGBA9DBNCCA1E143AWVPE936TGV49NN5YS2R89SP6STJEN2MJNTKEXMMR*"
+
+    assert CrockfordBase32.encode(
+             "9PfOBEizSF58uAvY1qo_3_xWgsqs06LND99HPFZsEWtd5oOpFoQqWa6LY_mpe5Hv",
+             checksum: true
+           ) ==
+             "7586CKT28NMQMMT66MW7AGBPB4RQ2VTZ6DFQGNV7EDRQ6C1P9H748E9S9184CPKK8NBQ8S1NDX7Q0HKFA5RNER9P9HCNYVBGCMTMGXGB"
+
+    assert CrockfordBase32.encode(
+             "7Bs0pzuNyEYLhkQ9fXI76-quEhpn9MRHfUViVAVQXR3AaRdWMR7K--8MLOL64vipDkPpZ1x3jrxRi6crIDzO4iXkYMn5fAjKWV1ApH5svrFmCdMj_dXBscgRuEIWSwiL",
+             checksum: true
+           ) ==
+             "6X176C3GF9TMWYA5B566GTTH75K5GJ9Q6RPQ2XA5D1R6WEADA946CNAPD5B42NJHB1936GB1A9J5EKAJ6X5JTB9R9N64YK1P6HV6JW24DD870PHHF0SPMWKRA9MKCRVJ9527MKSMD5C6PPADDRTPCGBA9DBNCCA1E143AWVPE936TGV49NN5YS2R89SP6STJEN2MJNTKEXMMR*"
 
     assert CrockfordBase32.encode("测试", checksum: true) == "WTTRQT5FJMM"
   end
@@ -68,5 +78,4 @@ defmodule CrockfordBase32EncodeTest do
     bytes = <<1, 2, 3>>
     assert CrockfordBase32.encode(bytes) == "04106"
   end
-
 end
