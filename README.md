@@ -45,9 +45,11 @@ iex> CrockfordBase32.encode(1234, split_size: 1, checksum: true)
 "1-6-J-D"
 ```
 
-Encode a string, and optional `split_size` and `checksum` options are both working:
+Encode a binary, and optional `split_size` and `checksum` options are both working:
 
 ```elixir
+iex> CrockfordBase32.encode(<<12345678::size(48)>>)
+"00001F319R"
 iex> CrockfordBase32.encode("abc")
 "C5H66"
 iex> CrockfordBase32.encode("abc", checksum: true)
@@ -80,9 +82,11 @@ iex> CrockfordBase32.decode_to_integer("16J1", checksum: true)
 {:error, "invalid_checksum"}
 ```
 
-Decode the encoded to a string:
+Decode the encoded to a binary:
 
 ```elixir
+iex> CrockfordBase32.decode_to_binary("00001F319R")
+{:ok, <<0, 0, 0, 188, 97, 78>>}
 iex> CrockfordBase32.decode_to_binary("C5H66")
 {:ok, "abc"}
 iex> CrockfordBase32.decode_to_binary("C5H-66")
@@ -95,7 +99,7 @@ iex> CrockfordBase32.decode_to_binary("c5h66")
 {:ok, "abc"}
 ```
 
-With a check symbol, and decode the encoded to a string:
+With a check symbol, and decode the encoded to a binary:
 
 ```elixir
 iex> CrockfordBase32.decode_to_binary("C5H66C", checksum: true)
