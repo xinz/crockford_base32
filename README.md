@@ -115,7 +115,7 @@ iex> CrockfordBase32.decode_to_integer(<<>>)
 {:error, "invalid"}
 ```
 
-### Fixed Size to Encode
+### Fixed Size Encoding
 
 In some cases, you may want to encode the fixed size bytes, we can do this be with a better performance from the pattern match of Elixir/Erlang. I use this function to implement a [ULID](https://github.com/xinz/elixir_ulid) in Elixir.
 
@@ -130,7 +130,7 @@ defmoule ULID do
 end
 ```
 
-Then we can use `ULID.Base32.encode/1` to encode bytes in 128 bits.
+Then we can use `ULID.Base32.encode/1` to encode bytes in 128 bits, and use `ULID.Base32.decode/1` to decode the corresponding encoded.
 
 ## Credits
 

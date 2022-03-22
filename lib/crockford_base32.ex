@@ -310,6 +310,7 @@ defmodule CrockfordBase32 do
   check_symbol_charlist = '*~$=U'
 
   alphabet = encoding_symbol_charlist ++ check_symbol_charlist
+  @doc false
   @compile {:inline, e: 1}
   for {alphabet, index} <- Enum.with_index(alphabet) do
     def e(unquote(index)), do: unquote(alphabet)
@@ -317,6 +318,7 @@ defmodule CrockfordBase32 do
 
   # also generate the alphabet(A-Z) in lowercase when decode
   @compile {:inline, d: 1}
+  @doc false
   for {alphabet, index} <- Enum.with_index(alphabet) do
     def d(unquote(alphabet)), do: unquote(index)
     if alphabet in ?A..?Z do
