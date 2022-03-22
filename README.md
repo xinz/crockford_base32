@@ -130,7 +130,7 @@ defmoule ULID do
 end
 ```
 
-Then we can use `ULID.Base32.encode/1` to encode bytes in 128 bits, and use `ULID.Base32.decode/1` to decode the corresponding encoded.
+Then we can use `ULID.Base32.encode/1` to encode the bytes in 128 bits, and use `ULID.Base32.decode/1` to decode the corresponding encoded.
 
 ## Credits
 
