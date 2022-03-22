@@ -27,10 +27,7 @@ defmodule CrockfordBase32.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.28", only: :dev, runtime: false},
-      {:benchee, "~> 1.0", only: :dev},
-      {:base32_crockford, "~> 1.0", only: :dev},
-      {:base32, "~> 2021.3", hex: :base32_clockwork, only: :dev}
+      {:ex_doc, "~> 0.28", only: :dev, runtime: false}
     ]
   end
 
