@@ -1,6 +1,6 @@
 defmodule CrockfordBase32 do
   @moduledoc """
-  The main module implements Douglas Crockford's [Base32](https://www.crockford.com/base32.html) encoding and decoding.
+  The main module implements Douglas Crockford's [Base32](https://www.crockford.com/base32.html) encoding.
   """
 
   import Bitwise, only: [bor: 2, bsl: 2]
@@ -87,11 +87,14 @@ defmodule CrockfordBase32 do
     {:error, "invalid"}
   end
 
-  def decode_to_integer(string, opts) when is_bitstring(string) do
+  def decode_to_integer(string, opts) when is_binary(string) do
     string
     |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
     |> decoding_integer()
+  rescue
+    _error ->
+      {:error, "invalid"}
   end
 
   @doc """
@@ -123,6 +126,9 @@ defmodule CrockfordBase32 do
     |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
     |> decoding_string()
+  rescue
+    _error ->
+      {:error, "invalid"}
   end
 
   defp may_split_with_checksum(str, false), do: {str, nil}
@@ -367,4 +373,6 @@ defmodule CrockfordBase32 do
       end
     end
   end
+
+  defp decode_string(_, _acc), do: raise "invalid"
 end

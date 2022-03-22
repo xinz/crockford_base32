@@ -109,7 +109,11 @@ Some invalid cases:
 ```elixir
 iex> CrockfordBase32.decode_to_binary("F1")
 {:error, "invalid"}
+iex> CrockfordBase32.decode_to_binary(<<1, 2, 3>>)
+{:error, "invalid"}
 iex> CrockfordBase32.decode_to_binary(<<>>)
+{:error, "invalid"}
+iex> CrockfordBase32.decode_to_integer(<<1, 2, 3>>)
 {:error, "invalid"}
 iex> CrockfordBase32.decode_to_integer(<<>>)
 {:error, "invalid"}

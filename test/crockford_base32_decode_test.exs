@@ -28,7 +28,7 @@ defmodule CrockfordBase32DecodeTest do
     assert_encode_and_decode_integer(items, checksum: true)
   end
 
-  test "input invalid to decode string" do
+  test "input invalid to decode binary" do
     assert CrockfordBase32.decode_to_binary("C5H66") == {:ok, "abc"}
     assert CrockfordBase32.decode_to_binary("C5H66C", checksum: true) == {:ok, "abc"}
     assert CrockfordBase32.decode_to_binary("C5H66C") == {:error, "invalid"}
@@ -40,20 +40,25 @@ defmodule CrockfordBase32DecodeTest do
     assert CrockfordBase32.decode_to_binary(<<>>) == {:error, "invalid"}
   end
 
-  test "input invalid to decode integer" do
+  test "invalid checksum when decode integer" do
     assert CrockfordBase32.decode_to_integer("16J") == {:ok, 1234}
     assert CrockfordBase32.decode_to_integer("16JD", checksum: true) == {:ok, 1234}
     assert CrockfordBase32.decode_to_integer("16JD") == {:ok, 39501}
 
     assert CrockfordBase32.decode_to_integer("16J1", checksum: true) ==
              {:error, "invalid_checksum"}
-
-    assert CrockfordBase32.decode_to_integer(<<>>) == {:error, "invalid"}
   end
 
   test "decode with zero pad leading" do
     assert CrockfordBase32.decode_to_binary("05ZSQZWDJ0") == {:ok, <<1, 127, 155, 255, 141, 144>>}
     assert CrockfordBase32.decode_to_binary("04106") == {:ok, <<1, 2, 3>>}
+  end
+
+  test "invalid to decode" do
+    assert CrockfordBase32.decode_to_binary(<<>>) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_binary(<<1, 2, 3>>) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_integer(<<>>) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_integer(<<1, 2, 3>>) == {:error, "invalid"}
   end
 
   defp assert_encode_and_decode_binary(items, opts \\ []) do
