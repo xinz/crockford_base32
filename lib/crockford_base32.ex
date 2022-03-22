@@ -13,7 +13,7 @@ defmodule CrockfordBase32 do
     if bits_size != nil do
       quote do
         require FixedEncoding
-        FixedEncoding.generate_encode(unquote(bits_size))
+        FixedEncoding.generate(unquote(bits_size))
       end
     end
   end
@@ -89,7 +89,7 @@ defmodule CrockfordBase32 do
 
   def decode_to_integer(string, opts) when is_bitstring(string) do
     string
-    |> remove_hyphen_and_upcase()
+    |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
     |> decoding_integer()
   end
@@ -120,7 +120,7 @@ defmodule CrockfordBase32 do
 
   def decode_to_binary(string, opts) when is_binary(string) do
     string
-    |> remove_hyphen_and_upcase()
+    |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
     |> decoding_string()
   end
@@ -131,10 +131,8 @@ defmodule CrockfordBase32 do
     String.split_at(str, -1)
   end
 
-  defp remove_hyphen_and_upcase(str) do
-    str
-    |> String.replace("-", "")
-    |> String.upcase()
+  defp remove_hyphen(str) do
+    String.replace(str, "-", "")
   end
 
   defp decoding_integer({str, nil}) do
@@ -286,19 +284,6 @@ defmodule CrockfordBase32 do
     {input, []}
   end
 
-  # defp may_checksum({encoded, _input}, false), do: encoded
-  # defp may_checksum({encoded, input}, true) when is_integer(input) do
-  #  checksum(encoded, input)
-  # end
-  # defp may_checksum({encoded, input}, true) when is_bitstring(input) do
-  #  input_int = bytes_to_integer_nopadding(input, 0)
-  #  checksum(encoded, input_int)
-  # end
-
-  # defp checksum(encoded, input) do
-  #  <<encoded::binary, calculate_checksum(input)::integer>>
-  # end
-
   defp calculate_checksum(int) do
     int |> rem(37) |> e()
   end
@@ -330,17 +315,23 @@ defmodule CrockfordBase32 do
     def e(unquote(index)), do: unquote(alphabet)
   end
 
+  # also generate the alphabet(A-Z) in lowercase when decode
   @compile {:inline, d: 1}
   for {alphabet, index} <- Enum.with_index(alphabet) do
-    defp d(unquote(alphabet)), do: unquote(index)
+    def d(unquote(alphabet)), do: unquote(index)
+    if alphabet in ?A..?Z do
+      def d(unquote(alphabet+32)), do: unquote(index)
+    end
   end
 
   # O
-  defp d(79), do: 0
+  def d(79), do: 0
   # L
-  defp d(76), do: 1
+  def d(76), do: 1
   # I
-  defp d(73), do: 1
+  def d(73), do: 1
+  # invalid
+  def d(_), do: raise "invalid"
 
   @compile {:inline, decode_string: 2}
   defp decode_string(<<>>, acc) do
@@ -363,9 +354,15 @@ defmodule CrockfordBase32 do
     end
   end
 
+  # also generate the alphabet(A-Z) in lowercase when decode with accumulator
   for {alphabet, index} <- Enum.with_index(encoding_symbol_charlist) do
     defp decode_string(<<unquote(alphabet), rest::bitstring>>, acc) do
       decode_string(rest, <<acc::bitstring, unquote(index)::5>>)
+    end
+    if alphabet in ?A..?Z do
+      defp decode_string(<<unquote(alphabet+32), rest::bitstring>>, acc) do
+        decode_string(rest, <<acc::bitstring, unquote(index)::5>>)
+      end
     end
   end
 end
