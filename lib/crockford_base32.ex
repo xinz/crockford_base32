@@ -9,11 +9,12 @@ defmodule CrockfordBase32 do
     alias CrockfordBase32.FixedEncoding
     opts = Macro.prewalk(opts, &Macro.expand(&1, __CALLER__))
     bits_size = Keyword.get(opts, :bits_size)
+    type = Keyword.get(opts, :type, :bitstring)
 
     if bits_size != nil do
       quote do
         require FixedEncoding
-        FixedEncoding.generate(unquote(bits_size))
+        FixedEncoding.generate(unquote(bits_size), unquote(type))
       end
     end
   end
@@ -339,7 +340,7 @@ defmodule CrockfordBase32 do
   # I
   def d(73), do: 1
   # invalid
-  def d(_), do: raise "invalid"
+  def d(input), do: raise "invalid: #{inspect input}"
 
   @compile {:inline, decode_string: 2}
   defp decode_string(<<>>, acc) do
@@ -374,5 +375,5 @@ defmodule CrockfordBase32 do
     end
   end
 
-  defp decode_string(_, _acc), do: raise "invalid"
+  defp decode_string(input, _acc), do: raise "invalid: #{inspect input}"
 end

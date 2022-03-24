@@ -13,4 +13,16 @@ defmodule CrockfordBase32.Encoding do
     use CrockfordBase32,
       bits_size: 25
   end
+
+  defmodule Fixed48Integer do
+    use CrockfordBase32,
+      bits_size: 48,
+      type: :integer
+  end
+
+  defmodule Fixed15Integer do
+    use CrockfordBase32,
+      bits_size: 15,
+      type: :integer
+  end
 end

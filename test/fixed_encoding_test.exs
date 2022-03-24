@@ -48,4 +48,40 @@ defmodule CrockfordBase32FixedEncodingTest do
     assert String.starts_with?(encoded, "0") == true
     assert Encoding.Fixed25.decode(encoded) == {:ok, data}
   end
+
+  test "encode integer as 48 bits" do
+    data = 1648103085
+    encoded = Encoding.Fixed48Integer.encode(data)
+    assert String.starts_with?(encoded, "0") == true
+    size = String.length(encoded)
+    assert encoded == String.pad_leading(CrockfordBase32.encode(data), size, "0")
+  end
+
+  test "decode integer as 48 bits" do
+    data = 12345
+    encoded = Encoding.Fixed48Integer.encode(data)
+    assert encoded == "0000000C1S"
+    assert Encoding.Fixed48Integer.decode(encoded) == {:ok, data}
+  end
+
+  test "encode integer as 15 bits (5-multiple)" do
+    data = 1001
+    encoded = Encoding.Fixed15Integer.encode(data)
+    assert String.trim_leading(encoded, "0") == CrockfordBase32.encode(data)
+  end
+
+  test "decode integer as 15 bits (5-multiple)" do
+    # integer exceed case
+    data = 987654
+    encoded = Encoding.Fixed15Integer.encode(data)
+    assert encoded == "4G6"
+    assert Encoding.Fixed15Integer.decode(encoded) == {:ok, 4614}
+    assert <<987654::size(15)>> == <<4614::size(15)>>
+
+    data = 1001
+    encoded = Encoding.Fixed15Integer.encode(data)
+    assert encoded == "0Z9"
+    assert Encoding.Fixed15Integer.decode(encoded) == {:ok, data}
+  end
+ 
 end
