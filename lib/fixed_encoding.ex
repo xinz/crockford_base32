@@ -7,7 +7,7 @@ defmodule CrockfordBase32.FixedEncoding do
   defmacro generate(bits_size) when bits_size != nil do
     rem = rem(bits_size, @block_size)
     arg_num = div(bits_size, @block_size)
-    padding_size = @block_size - rem
+    padding_size = if rem != 0, do: @block_size - rem, else: 0
 
     pattern_match_of_arg = generate_encode_args(arg_num, rem)
 
@@ -97,6 +97,12 @@ defmodule CrockfordBase32.FixedEncoding do
 
   defp generate_decode_body(arg_num, rem) when rem != 0 do
     arg_num + 1
+    |> Macro.generate_arguments(nil)
+    |> decode_body_expr()
+  end
+
+  defp generate_decode_body(arg_num, _rem) do
+    arg_num
     |> Macro.generate_arguments(nil)
     |> decode_body_expr()
   end

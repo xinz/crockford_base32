@@ -41,4 +41,11 @@ defmodule CrockfordBase32FixedEncodingTest do
     assert Encoding.Fixed128.decode(<<1>>) == {:error, "invalid"}
     assert Encoding.Fixed128.decode("abcdef") == {:error, "invalid"}
   end
+
+  test "encoding bytes size is 5-multiple" do
+    data = <<100::size(25)>>
+    encoded = Encoding.Fixed25.encode(data)
+    assert String.starts_with?(encoded, "0") == true
+    assert Encoding.Fixed25.decode(encoded) == {:ok, data}
+  end
 end
