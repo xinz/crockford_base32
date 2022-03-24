@@ -10,9 +10,9 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
     {rem, arg_num, padding_size} = calculate_base(bits_size, block_size)
 
     pattern_match_of_arg = generate_encode_args(arg_num, rem, block_size)
-    encode_body_expr = generate_encode_body(arg_num, rem, padding_size)
+    encode_body_expr = generate_encode_body(arg_num, rem, padding_size, block_size)
     pattern_match_of_decode_arg = generate_decode_args(arg_num, rem)
-    decode_body_expr = generate_decode_body(arg_num, rem)
+    decode_body_expr = generate_decode_body(arg_num, rem, block_size)
 
     quote do
 
@@ -59,7 +59,7 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
     end
   end
 
-  defp generate_encode_body(arg_num, rem, padding_size) when rem != 0 do
+  defp generate_encode_body(arg_num, rem, padding_size, block_size) when rem != 0 do
     args = Macro.generate_arguments(arg_num, nil)
     args = [
       {:<<>>, [],
@@ -68,20 +68,19 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
          {:"::", [], [0, {:size, [], [padding_size]}]}
        ]} | args
     ]
-    encode_body_expr(args)
+    encode_body_expr(args, block_size)
   end
 
-  defp generate_encode_body(arg_num, _rem, _padding) do
-    arg_num
-    |> Macro.generate_arguments(nil)
-    |> encode_body_expr()
+  defp generate_encode_body(arg_num, _rem, _padding, block_size) do
+    args = Macro.generate_arguments(arg_num, nil)
+    encode_body_expr(args, block_size)
   end
 
-  defp encode_body_expr(body) do
+  defp encode_body_expr(body, block_size) do
     Enum.map(body, fn
       {:<<>>, _, _} = item ->
         quote do
-          <<x::5>> = unquote(item)
+          <<x::unquote(block_size)>> = unquote(item)
           e(x)
         end
       item ->
@@ -102,20 +101,20 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
     generate_binary_pattern_match_args(arg_num, 8)
   end
 
-  defp generate_decode_body(arg_num, rem) when rem != 0 do
+  defp generate_decode_body(arg_num, rem, block_size) when rem != 0 do
     args = Macro.generate_arguments(arg_num, nil)
     args = [
       {:ok, Macro.var(:"#{@arg}0", nil)} | args
     ]
-    decode_body_expr(args, rem)
+    decode_body_expr(args, rem, block_size)
   end
 
-  defp generate_decode_body(arg_num, rem) do
+  defp generate_decode_body(arg_num, rem, block_size) do
     args = Macro.generate_arguments(arg_num, nil)
-    decode_body_expr(args, rem)
+    decode_body_expr(args, rem, block_size)
   end
 
-  defp decode_body_expr(body, rem) do
+  defp decode_body_expr(body, rem, block_size) do
     Enum.map(body, fn
       {:ok, arg} ->
         quote do
@@ -123,7 +122,7 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
         end
       arg ->
         quote do
-          d(unquote(arg))::5
+          d(unquote(arg))::unquote(block_size)
         end
     end)
   end

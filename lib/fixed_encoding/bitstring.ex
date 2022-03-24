@@ -10,7 +10,7 @@ defmodule CrockfordBase32.FixedEncoding.Bitstring do
     {rem, arg_num, padding_size} = calculate_base(bits_size, block_size)
 
     pattern_match_of_arg = generate_encode_args(arg_num, rem, block_size)
-    encode_body_expr = generate_encode_body(arg_num, rem, padding_size)
+    encode_body_expr = generate_encode_body(arg_num, rem, padding_size, block_size)
     pattern_match_of_decode_arg = generate_decode_args(arg_num, rem)
     decode_body_expr = generate_decode_body(arg_num, rem, block_size)
 
@@ -50,7 +50,7 @@ defmodule CrockfordBase32.FixedEncoding.Bitstring do
     end
   end
 
-  defp generate_encode_body(arg_num, rem, padding_size) when rem != 0 do
+  defp generate_encode_body(arg_num, rem, padding_size, block_size) when rem != 0 do
     arg_num
     |> Macro.generate_arguments(nil)
     |> List.insert_at(
@@ -61,20 +61,20 @@ defmodule CrockfordBase32.FixedEncoding.Bitstring do
          {:"::", [], [0, {:size, [], [padding_size]}]}
        ]}
     )
-    |> encode_body_expr()
+    |> encode_body_expr(block_size)
   end
 
-  defp generate_encode_body(arg_num, _rem, _padding) do
+  defp generate_encode_body(arg_num, _rem, _padding, block_size) do
     arg_num
     |> Macro.generate_arguments(nil)
-    |> encode_body_expr()
+    |> encode_body_expr(block_size)
   end
 
-  defp encode_body_expr(body) do
+  defp encode_body_expr(body, block_size) do
     Enum.map(body, fn
       {:<<>>, _, _} = item ->
         quote do
-          <<x::5>> = unquote(item)
+          <<x::unquote(block_size)>> = unquote(item)
           e(x)
         end
       item ->
