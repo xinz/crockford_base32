@@ -144,7 +144,7 @@ defmoule ULID do
 end
 ```
 
-Then we can use `ULID.TimestampBits` to encode/decode the integer (as unix timestamp in millisecond) in 48 bits, and use `ULID.RandomBits` to encode/decode the random generated 80 bytes.
+Then we can use `ULID.TimestampBits` to encode/decode the integer (as unix timestamp in millisecond) in 48 bits, and use `ULID.RandomBits` to encode/decode the random generated in 80 bits.
 
 ## Credits
 
