@@ -19,4 +19,11 @@ defmodule CrockfordBase32.FixedEncoding do
     end
   end
 
+  def calculate_base(bits_size, block_size) do
+    rem = rem(bits_size, block_size)
+    arg_num = div(bits_size, block_size)
+    padding_size = if rem != 0, do: block_size - rem, else: 0
+    {rem, arg_num, padding_size}
+  end
+
 end

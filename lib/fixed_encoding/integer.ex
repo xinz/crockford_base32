@@ -1,12 +1,13 @@
 defmodule CrockfordBase32.FixedEncoding.Integer do
   @moduledoc false
 
+  import CrockfordBase32.FixedEncoding, only: [calculate_base: 2]
+  import CrockfordBase32, only: [error_invalid: 0, e: 1, d: 1]
+
   @arg "arg"
 
   defmacro generate(bits_size, block_size) when bits_size != nil do
-    rem = rem(bits_size, block_size)
-    arg_num = div(bits_size, block_size)
-    padding_size = if rem != 0, do: block_size - rem, else: 0
+    {rem, arg_num, padding_size} = calculate_base(bits_size, block_size)
 
     pattern_match_of_arg = generate_encode_args(arg_num, rem, block_size)
     encode_body_expr = generate_encode_body(arg_num, rem, padding_size)
@@ -22,7 +23,7 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
       defp encode_bytes_from_integer(unquote({:<<>>, [], pattern_match_of_arg})) do
         unquote({:<<>>, [], encode_body_expr})
       end
-      defp encode_bytes_from_integer(_), do: {:error, "invalid"}
+      defp encode_bytes_from_integer(_), do: error_invalid()
 
       def decode(value) do
         case decode_bytes_to_integer(value) do
@@ -37,9 +38,9 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
         {:ok, unquote({:<<>>, [], decode_body_expr})}
       rescue
         _ ->
-          {:error, "invalid"}
+          error_invalid()
       end
-      defp decode_bytes_to_integer(_), do: {:error, "invalid"}
+      defp decode_bytes_to_integer(_), do: error_invalid()
     end
   end
 
@@ -81,11 +82,11 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
       {:<<>>, _, _} = item ->
         quote do
           <<x::5>> = unquote(item)
-          CrockfordBase32.e(x)
+          e(x)
         end
       item ->
         quote do
-          CrockfordBase32.e(unquote(item))
+          e(unquote(item))
         end
     end)
   end
@@ -118,11 +119,11 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
     Enum.map(body, fn
       {:ok, arg} ->
         quote do
-          CrockfordBase32.d(unquote(arg))::unquote(rem)
+          d(unquote(arg))::unquote(rem)
         end
       arg ->
         quote do
-          CrockfordBase32.d(unquote(arg))::5
+          d(unquote(arg))::5
         end
     end)
   end

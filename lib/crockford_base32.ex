@@ -85,7 +85,7 @@ defmodule CrockfordBase32 do
   def decode_to_integer(string, opts \\ [])
 
   def decode_to_integer(<<>>, _opts) do
-    {:error, "invalid"}
+    error_invalid()
   end
 
   def decode_to_integer(string, opts) when is_binary(string) do
@@ -95,7 +95,7 @@ defmodule CrockfordBase32 do
     |> decoding_integer()
   rescue
     _error ->
-      {:error, "invalid"}
+      error_invalid()
   end
 
   @doc """
@@ -119,7 +119,7 @@ defmodule CrockfordBase32 do
   def decode_to_binary(string, opts \\ [])
 
   def decode_to_binary(<<>>, _opts) do
-    {:error, "invalid"}
+    error_invalid()
   end
 
   def decode_to_binary(string, opts) when is_binary(string) do
@@ -129,7 +129,7 @@ defmodule CrockfordBase32 do
     |> decoding_string()
   rescue
     _error ->
-      {:error, "invalid"}
+      error_invalid()
   end
 
   defp may_split_with_checksum(str, false), do: {str, nil}
@@ -342,6 +342,9 @@ defmodule CrockfordBase32 do
   # invalid
   def d(input), do: raise "invalid: #{inspect input}"
 
+  @doc false
+  def error_invalid(), do: {:error, "invalid"}
+
   @compile {:inline, decode_string: 2}
   defp decode_string(<<>>, acc) do
     decoded_size = bit_size(acc)
@@ -358,7 +361,7 @@ defmodule CrockfordBase32 do
             {:ok, decoded}
 
           _ ->
-            {:error, "invalid"}
+            error_invalid()
         end
     end
   end
