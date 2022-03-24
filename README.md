@@ -150,6 +150,7 @@ Then we can use `ULID.TimestampBits` to encode/decode the integer (as unix times
 
 These libraries or tools are very helpful in understanding and reference, thanks!
 
+- [TheRealReal/ecto-ulid](https://github.com/TheRealReal/ecto-ulid)
 - [shiguredo/base32_clockwork](https://github.com/shiguredo/base32_clockwork)
 - [voldy/base32_crockford](https://github.com/voldy/base32_crockford)
 - [levinalex/base32](https://github.com/levinalex/base32)
