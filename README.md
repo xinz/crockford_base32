@@ -11,7 +11,7 @@ This library can encode an integer or a binary in Crockford's Base32, and also p
 ```elixir
 def deps do
   [
-    {:crockford_base32, "~> 0.1"}
+    {:crockford_base32, "~> 0.3"}
   ]
 end
 ```
