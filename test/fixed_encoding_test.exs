@@ -84,4 +84,10 @@ defmodule CrockfordBase32FixedEncodingTest do
     assert Encoding.Fixed15Integer.decode(encoded) == {:ok, data}
   end
  
+  test "decode integer as bitstring" do
+    data = 100
+    encoded = Encoding.Fixed15Integer.encode(data)
+    assert encoded == "034"
+    assert Encoding.Fixed15Integer.decode_to_bitstring(encoded) == {:ok, <<data::size(15)>>}
+  end
 end

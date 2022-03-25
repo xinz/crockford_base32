@@ -16,31 +16,28 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
 
     quote do
 
-      def encode(value) when is_integer(value) and value >= 0 do
-        encode_bytes_from_integer(<<value::unsigned-unquote(bits_size)>>)
-      end
-
-      defp encode_bytes_from_integer(unquote({:<<>>, [], pattern_match_of_arg})) do
+      def encode(unquote({:<<>>, [], pattern_match_of_arg})) do
         unquote({:<<>>, [], encode_body_expr})
       end
-      defp encode_bytes_from_integer(_), do: error_invalid()
+      def encode(value) when is_integer(value) and value >= 0 do
+        encode(<<value::unsigned-unquote(bits_size)>>)
+      end
+      def encode(_), do: error_invalid()
 
-      def decode(value) do
-        case decode_bytes_to_integer(value) do
-          {:ok, <<decoded::unsigned-size(unquote(bits_size))>>} ->
-            {:ok, decoded}
-          error ->
-            error
-        end
+      def decode(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
+        <<decoded::unsigned-size(unquote(bits_size))>> = unquote({:<<>>, [], decode_body_expr})
+        {:ok, decoded}
+      rescue
+        _ ->
+          error_invalid()
       end
 
-      defp decode_bytes_to_integer(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
+      def decode_to_bitstring(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
         {:ok, unquote({:<<>>, [], decode_body_expr})}
       rescue
         _ ->
           error_invalid()
       end
-      defp decode_bytes_to_integer(_), do: error_invalid()
     end
   end
 

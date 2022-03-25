@@ -127,24 +127,21 @@ iex> CrockfordBase32.decode_to_integer(<<>>)
 
 In some cases, you may want to encode the fixed size bytes, we can do this be with a better performance leverages the benefit of the pattern match of Elixir/Erlang. I use this feature to implement a [ULID](https://github.com/xinz/elixir_ulid) in Elixir.
 
+Refer [ULID specification](https://github.com/ulid/spec#specification), a ULID concatenates an UNIX timestamp in milliseconds(a 48 bit integer) and a randomness in 80 bits, since an integer in bits are padded with some `<<0::1>>` leading when needed, and a ULID in 128 bits its length is 26 (can be divisible by 5), apply the fixed size encoding with `type: :integer` can effectively encode/decode a ULID, for example:
+
 ```elixir
 defmoule ULID do
 
-  defmoule TimestampBits do
+  defmoule Base32.Bits128 do
     use CrockfordBase32,
-      bits_size: 48,
-      type: :integer
+      bits_size: 128,
+      type: :integer # Optional, defaults to `:bitstring`
   end
 
-  defmoule RandomBits do
-    use CrockfordBase32,
-      bits_size: 80,
-      type: :bitstring # Optional, defaults to `:bitstring`
-  end
 end
 ```
 
-Then we can use `ULID.TimestampBits` to encode/decode the integer (as unix timestamp in millisecond) in 48 bits, and use `ULID.RandomBits` to encode/decode the random generated in 80 bits.
+Then we can use `ULID.Base32.Bits128` to encode/decode a 128 bit binary which concatenates an integer (as UNIX timestamp in millisecond) in 48 bits and a random generated in 80 bits.
 
 ## Credits
 
