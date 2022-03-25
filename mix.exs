@@ -6,7 +6,7 @@ defmodule CrockfordBase32.MixProject do
   def project do
     [
       app: :crockford_base32,
-      version: "0.2.1",
+      version: "0.3.0",
       elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -32,7 +32,7 @@ defmodule CrockfordBase32.MixProject do
   end
 
   defp description do
-    "An Elixir Implementation of Douglas Crockford's Base32 encoding."
+    "An Elixir implementation of Douglas Crockford's Base32 encoding with an integer or a binary"
   end
 
   defp package do
