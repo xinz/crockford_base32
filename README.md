@@ -127,7 +127,7 @@ iex> CrockfordBase32.decode_to_integer(<<>>)
 
 In some cases, you may want to encode the fixed size bytes, we can do this be with a better performance leverages the benefit of the pattern match of Elixir/Erlang. I use this feature to implement a [ULID](https://github.com/xinz/elixir_ulid) in Elixir.
 
-Refer [ULID specification](https://github.com/ulid/spec#specification), a ULID concatenates an UNIX timestamp in milliseconds(a 48 bit integer) and a randomness in 80 bits, since an integer in bits are padded with some `<<0::1>>` leading when needed, and a ULID in 128 bits its length is 26 (can be divisible by 5), apply the fixed size encoding with `type: :integer` can effectively encode/decode a ULID, for example:
+Refer [ULID specification](https://github.com/ulid/spec#specification), a ULID concatenates a UNIX timestamp in milliseconds(a 48 bit integer) and a randomness in 80 bits, since an integer in bits are padded with some `<<0::1>>` leading when needed, and a ULID in 128 bits its length is 26 (can be divisible by 5), apply the fixed size encoding with `type: :integer` can effectively encode/decode a ULID, for example:
 
 ```elixir
 defmoule ULID do
