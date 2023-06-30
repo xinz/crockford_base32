@@ -77,5 +77,13 @@ defmodule CrockfordBase32EncodeTest do
     assert CrockfordBase32.encode(bytes) == "05ZSQZWDJ0"
     bytes = <<1, 2, 3>>
     assert CrockfordBase32.encode(bytes) == "04106"
+    bytes = <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
+    assert CrockfordBase32.encode(bytes) == "00000000000000000000000000"
+    bytes = <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
+    assert CrockfordBase32.encode(bytes, checksum: true) == "000000000000000000000000000"
+    bytes = <<8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0>>
+    assert CrockfordBase32.encode(bytes) == "10000000000000000000000000"
+    bytes = <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1>>
+    assert CrockfordBase32.encode(bytes) == "00000000000000000000000004"
   end
 end

@@ -205,7 +205,9 @@ defmodule CrockfordBase32 do
     do_encode_bytes_maybe_padding(value, expected_size, checksum)
   end
 
-  defp do_encode_bytes_maybe_padding(0, _, []), do: "0"
+  defp do_encode_bytes_maybe_padding(0, expected_size, []),
+    do: String.duplicate("0", expected_size)
+
   defp do_encode_bytes_maybe_padding(0, 0, acc), do: to_string(acc)
 
   defp do_encode_bytes_maybe_padding(0, size, acc) when size > 0 do
