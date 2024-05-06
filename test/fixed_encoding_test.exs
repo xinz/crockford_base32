@@ -24,6 +24,14 @@ defmodule CrockfordBase32FixedEncodingTest do
     assert encoded == CrockfordBase32.encode(data)
   end
 
+  test "encode 128-bits integer" do
+    data = <<256, 143, 77, 98, 108, 55, 54, 32, 123, 234, 29, 55, 65, 200, 250, 217>>
+    assert bit_size(data) == 128
+    encoded = Encoding.Fixed128Integer.encode(data)
+    assert encoded == "00HX6P4V1Q6RG7QTGX6X0WHYPS"
+    assert {:ok, data} == Encoding.Fixed128Integer.decode_to_bitstring(encoded)
+  end
+
   test "decode 128-bits" do
     data = "abcdefghighlmlio"
     {:ok, decoded} = data |> Encoding.Fixed128.encode() |> Encoding.Fixed128.decode()
