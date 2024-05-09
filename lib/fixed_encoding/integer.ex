@@ -2,7 +2,7 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
   @moduledoc false
 
   import CrockfordBase32.FixedEncoding, only: [calculate_base: 2]
-  import CrockfordBase32, only: [error_invalid: 0, e: 1, d: 1]
+  import CrockfordBase32, only: [error_invalid: 0]
 
   @arg "arg"
 
@@ -15,6 +15,7 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
     decode_body_expr = generate_decode_body(arg_num, rem, block_size)
 
     quote do
+      use CrockfordBase32.Symbol
 
       def encode(unquote({:<<>>, [], pattern_match_of_arg})) do
         unquote({:<<>>, [], encode_body_expr})
@@ -27,14 +28,14 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
       def decode(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
         <<decoded::unsigned-size(unquote(bits_size))>> = unquote({:<<>>, [], decode_body_expr})
         {:ok, decoded}
-      rescue
+      catch
         _ ->
           error_invalid()
       end
 
       def decode_to_bitstring(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
         {:ok, unquote({:<<>>, [], decode_body_expr})}
-      rescue
+      catch
         _ ->
           error_invalid()
       end

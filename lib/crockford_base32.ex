@@ -3,6 +3,8 @@ defmodule CrockfordBase32 do
   The main module implements Douglas Crockford's [Base32](https://www.crockford.com/base32.html) encoding.
   """
 
+  use CrockfordBase32.Symbol
+
   import Bitwise, only: [bor: 2, bsl: 2]
 
   defmacro __using__(opts \\ []) do
@@ -93,7 +95,7 @@ defmodule CrockfordBase32 do
     |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
     |> decoding_integer()
-  rescue
+  catch
     _error ->
       error_invalid()
   end
@@ -127,7 +129,7 @@ defmodule CrockfordBase32 do
     |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
     |> decoding_string()
-  rescue
+  catch
     _error ->
       error_invalid()
   end
@@ -315,35 +317,6 @@ defmodule CrockfordBase32 do
     Enum.reverse([rest | prepared]) |> Enum.join("-")
   end
 
-  encoding_symbol_charlist = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
-  check_symbol_charlist = '*~$=U'
-
-  alphabet = encoding_symbol_charlist ++ check_symbol_charlist
-  @doc false
-  @compile {:inline, e: 1}
-  for {alphabet, index} <- Enum.with_index(alphabet) do
-    def e(unquote(index)), do: unquote(alphabet)
-  end
-
-  # also generate the alphabet(A-Z) in lowercase when decode
-  @compile {:inline, d: 1}
-  @doc false
-  for {alphabet, index} <- Enum.with_index(alphabet) do
-    def d(unquote(alphabet)), do: unquote(index)
-    if alphabet in ?A..?Z do
-      def d(unquote(alphabet+32)), do: unquote(index)
-    end
-  end
-
-  # O
-  def d(79), do: 0
-  # L
-  def d(76), do: 1
-  # I
-  def d(73), do: 1
-  # invalid
-  def d(input), do: raise "invalid: #{inspect input}"
-
   @doc false
   def error_invalid(), do: {:error, "invalid"}
 
@@ -369,7 +342,8 @@ defmodule CrockfordBase32 do
   end
 
   # also generate the alphabet(A-Z) in lowercase when decode with accumulator
-  for {alphabet, index} <- Enum.with_index(encoding_symbol_charlist) do
+  @compile {:inline, decode_string: 2}
+  for {alphabet, index} <- Enum.with_index(CrockfordBase32.Symbol.alphabet_set()) do
     defp decode_string(<<unquote(alphabet), rest::bitstring>>, acc) do
       decode_string(rest, <<acc::bitstring, unquote(index)::5>>)
     end
@@ -379,6 +353,6 @@ defmodule CrockfordBase32 do
       end
     end
   end
+  defp decode_string(_input, _acc), do: throw :error
 
-  defp decode_string(input, _acc), do: raise "invalid: #{inspect input}"
 end
