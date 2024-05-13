@@ -76,14 +76,14 @@ defmodule CrockfordBase32 do
       iex> CrockfordBase32.decode_to_integer("16j")
       {:ok, 1234}
       iex> CrockfordBase32.decode_to_integer("16j*", checksum: true)
-      {:error, "invalid_checksum"}
+      :error_checksum
 
   ## Options
 
     * `:checksum`, optional, a boolean, by defaults to `false` means expect input the encoded string without a check symbol in its tail,
-      if set it as `true`, please ensure input encoded is a string be with a check symbol, or return  `{:error, "invalid_checksum"}`.
+      if set it as `true`, please ensure input encoded is a string be with a check symbol, or return  `:error_checksum`.
   """
-  @spec decode_to_integer(String.t(), Keyword.t()) :: {:ok, integer} | {:error, String.t()}
+  @spec decode_to_integer(String.t(), Keyword.t()) :: {:ok, integer} | :error | :error_checksum
   def decode_to_integer(string, opts \\ [])
 
   def decode_to_integer(<<>>, _opts) do
@@ -112,7 +112,7 @@ defmodule CrockfordBase32 do
       iex> CrockfordBase32.decode_to_binary("C5H66C", checksum: true)
       {:ok, "abc"}
       iex> CrockfordBase32.decode_to_binary("C5H66D", checksum: true)
-      {:error, "invalid_checksum"}
+      :error_checksum
 
   ## Options
 
@@ -153,13 +153,13 @@ defmodule CrockfordBase32 do
     integer = decoding_integer(str, 0)
 
     if check_value != rem(integer, 37) do
-      {:error, "invalid_checksum"}
+      invalid_checksum()
     else
       {:ok, integer}
     end
   end
 
-  defp decoding_integer(_), do: {:error, "invalid_checksum"}
+  defp decoding_integer(_), do: error_invalid()
 
   defp decoding_integer(<<>>, acc), do: acc
 
@@ -179,15 +179,17 @@ defmodule CrockfordBase32 do
            |> bytes_to_integer_nopadding(0)
            |> calculate_checksum() do
       if checksum_of_decoded != checksum do
-        {:error, "invalid_checksum"}
+        invalid_checksum()
       else
         result
       end
     else
-      {:error, _} = error ->
+      error ->
         error
     end
   end
+
+  defp invalid_checksum(), do: :error_checksum
 
   defp integer_to_encode({value, checksum}) do
     integer_to_encode(value, checksum)
@@ -318,7 +320,7 @@ defmodule CrockfordBase32 do
   end
 
   @doc false
-  def error_invalid(), do: {:error, "invalid"}
+  def error_invalid(), do: :error
 
   @compile {:inline, decode_string: 2}
   defp decode_string(<<>>, acc) do

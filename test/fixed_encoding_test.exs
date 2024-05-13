@@ -39,15 +39,15 @@ defmodule CrockfordBase32FixedEncodingTest do
   end
 
   test "encode invalid" do
-    assert Encoding.Fixed8.encode("abc") == {:error, "invalid"}
-    assert Encoding.Fixed128.encode("abcdefgh") == {:error, "invalid"}
+    assert Encoding.Fixed8.encode("abc") == :error
+    assert Encoding.Fixed128.encode("abcdefgh") == :error
   end
 
   test "decode invalid" do
-    assert Encoding.Fixed8.decode("c?") == {:error, "invalid"}
-    assert Encoding.Fixed8.decode(<<1, 2, 3>>) == {:error, "invalid"}
-    assert Encoding.Fixed128.decode(<<1>>) == {:error, "invalid"}
-    assert Encoding.Fixed128.decode("abcdef") == {:error, "invalid"}
+    assert Encoding.Fixed8.decode("c?") == :error
+    assert Encoding.Fixed8.decode(<<1, 2, 3>>) == :error
+    assert Encoding.Fixed128.decode(<<1>>) == :error
+    assert Encoding.Fixed128.decode("abcdef") == :error
   end
 
   test "encoding bytes size is 5-multiple" do

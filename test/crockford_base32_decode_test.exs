@@ -31,13 +31,12 @@ defmodule CrockfordBase32DecodeTest do
   test "input invalid to decode binary" do
     assert CrockfordBase32.decode_to_binary("C5H66") == {:ok, "abc"}
     assert CrockfordBase32.decode_to_binary("C5H66C", checksum: true) == {:ok, "abc"}
-    assert CrockfordBase32.decode_to_binary("C5H66C") == {:error, "invalid"}
-    assert CrockfordBase32.decode_to_binary("C5H66", checksum: true) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_binary("C5H66C") == :error
+    assert CrockfordBase32.decode_to_binary("C5H66", checksum: true) == :error
 
-    assert CrockfordBase32.decode_to_binary("C5H66D", checksum: true) ==
-             {:error, "invalid_checksum"}
+    assert CrockfordBase32.decode_to_binary("C5H66D", checksum: true) == :error_checksum
 
-    assert CrockfordBase32.decode_to_binary(<<>>) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_binary(<<>>) == :error
   end
 
   test "invalid checksum when decode integer" do
@@ -45,8 +44,7 @@ defmodule CrockfordBase32DecodeTest do
     assert CrockfordBase32.decode_to_integer("16JD", checksum: true) == {:ok, 1234}
     assert CrockfordBase32.decode_to_integer("16JD") == {:ok, 39501}
 
-    assert CrockfordBase32.decode_to_integer("16J1", checksum: true) ==
-             {:error, "invalid_checksum"}
+    assert CrockfordBase32.decode_to_integer("16J1", checksum: true) == :error_checksum
   end
 
   test "decode with zero pad leading" do
@@ -55,10 +53,10 @@ defmodule CrockfordBase32DecodeTest do
   end
 
   test "invalid to decode" do
-    assert CrockfordBase32.decode_to_binary(<<>>) == {:error, "invalid"}
-    assert CrockfordBase32.decode_to_binary(<<1, 2, 3>>) == {:error, "invalid"}
-    assert CrockfordBase32.decode_to_integer(<<>>) == {:error, "invalid"}
-    assert CrockfordBase32.decode_to_integer(<<1, 2, 3>>) == {:error, "invalid"}
+    assert CrockfordBase32.decode_to_binary(<<>>) == :error
+    assert CrockfordBase32.decode_to_binary(<<1, 2, 3>>) == :error
+    assert CrockfordBase32.decode_to_integer(<<>>) == :error
+    assert CrockfordBase32.decode_to_integer(<<1, 2, 3>>) == :error
   end
 
   defp assert_encode_and_decode_binary(items, opts \\ []) do
