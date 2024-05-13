@@ -26,19 +26,12 @@ defmodule CrockfordBase32.FixedEncoding.Integer do
       def encode(_), do: error_invalid()
 
       def decode(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
-        <<decoded::unsigned-size(unquote(bits_size))>> = unquote({:<<>>, [], decode_body_expr})
-        {:ok, decoded}
-      catch
-        _ ->
-          error_invalid()
-      end
-
-      def decode_to_bitstring(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
         {:ok, unquote({:<<>>, [], decode_body_expr})}
       catch
         _ ->
           error_invalid()
       end
+      def decode(_), do: error_invalid()
     end
   end
 

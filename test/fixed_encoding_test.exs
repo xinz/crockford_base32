@@ -29,7 +29,7 @@ defmodule CrockfordBase32FixedEncodingTest do
     assert bit_size(data) == 128
     encoded = Encoding.Fixed128Integer.encode(data)
     assert encoded == "00HX6P4V1Q6RG7QTGX6X0WHYPS"
-    assert {:ok, data} == Encoding.Fixed128Integer.decode_to_bitstring(encoded)
+    assert {:ok, data} == Encoding.Fixed128Integer.decode(encoded)
   end
 
   test "decode 128-bits" do
@@ -69,7 +69,7 @@ defmodule CrockfordBase32FixedEncodingTest do
     data = 12345
     encoded = Encoding.Fixed48Integer.encode(data)
     assert encoded == "0000000C1S"
-    assert Encoding.Fixed48Integer.decode(encoded) == {:ok, data}
+    assert Encoding.Fixed48Integer.decode(encoded) == {:ok, <<data::48>>}
   end
 
   test "encode integer as 15 bits (5-multiple)" do
@@ -83,19 +83,18 @@ defmodule CrockfordBase32FixedEncodingTest do
     data = 987654
     encoded = Encoding.Fixed15Integer.encode(data)
     assert encoded == "4G6"
-    assert Encoding.Fixed15Integer.decode(encoded) == {:ok, 4614}
-    assert <<987654::size(15)>> == <<4614::size(15)>>
+    assert Encoding.Fixed15Integer.decode(encoded) == {:ok, <<data::15>>}
 
     data = 1001
     encoded = Encoding.Fixed15Integer.encode(data)
     assert encoded == "0Z9"
-    assert Encoding.Fixed15Integer.decode(encoded) == {:ok, data}
+    assert Encoding.Fixed15Integer.decode(encoded) == {:ok, <<data::15>>}
   end
  
   test "decode integer as bitstring" do
     data = 100
     encoded = Encoding.Fixed15Integer.encode(data)
     assert encoded == "034"
-    assert Encoding.Fixed15Integer.decode_to_bitstring(encoded) == {:ok, <<data::size(15)>>}
+    assert Encoding.Fixed15Integer.decode(encoded) == {:ok, <<data::size(15)>>}
   end
 end
