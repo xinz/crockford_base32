@@ -79,7 +79,7 @@ With a check symbol, and decode the encoded to an integer:
 iex> CrockfordBase32.decode_to_integer("16JD", checksum: true)
 {:ok, 1234}
 iex> CrockfordBase32.decode_to_integer("16J1", checksum: true)
-{:error, "invalid_checksum"}
+:error_checksum
 ```
 
 Decode the encoded to a binary:
@@ -105,22 +105,22 @@ With a check symbol, and decode the encoded to a binary:
 iex> CrockfordBase32.decode_to_binary("C5H66C", checksum: true)
 {:ok, "abc"}
 iex> CrockfordBase32.decode_to_binary("C5H66D", checksum: true)
-{:error, "invalid_checksum"}
+:error_checksum
 ```
 
 Some invalid cases:
 
 ```elixir
 iex> CrockfordBase32.decode_to_binary("F1")
-{:error, "invalid"}
+:error
 iex> CrockfordBase32.decode_to_binary(<<1, 2, 3>>)
-{:error, "invalid"}
+:error
 iex> CrockfordBase32.decode_to_binary(<<>>)
-{:error, "invalid"}
+:error
 iex> CrockfordBase32.decode_to_integer(<<1, 2, 3>>)
-{:error, "invalid"}
+:error
 iex> CrockfordBase32.decode_to_integer(<<>>)
-{:error, "invalid"}
+:error
 ```
 
 ### Fixed Size Encoding
