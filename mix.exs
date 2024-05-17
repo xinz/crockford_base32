@@ -32,7 +32,7 @@ defmodule CrockfordBase32.MixProject do
   end
 
   defp description do
-    "An Elixir implementation of Douglas Crockford's Base32 encoding with an integer or a binary"
+    "An Elixir implementation of Douglas Crockford's Base32 encoding with an integer or a bitstring"
   end
 
   defp package do

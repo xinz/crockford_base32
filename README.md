@@ -4,14 +4,14 @@ An Elixir Implementation of Douglas Crockford's Base32 encoding.
 
 Please see [https://www.crockford.com/base32.html](https://www.crockford.com/base32.html).
 
-This library can encode an integer or a binary in Crockford's Base32, and also provide the way to decode the corresponding encoded.
+This library can encode an integer or a bitstring in Crockford's Base32, and also provide the way to decode the corresponding encoding.
 
 ## Installation
 
 ```elixir
 def deps do
   [
-    {:crockford_base32, "~> 0.3"}
+    {:crockford_base32, "~> 0.7"}
   ]
 end
 ```
@@ -45,7 +45,7 @@ iex> CrockfordBase32.encode(1234, split_size: 1, checksum: true)
 "1-6-J-D"
 ```
 
-Encode a binary, and optional `split_size` and `checksum` options are both working:
+Encode a bitstring, and optional `split_size` and `checksum` options are both working:
 
 ```elixir
 iex> CrockfordBase32.encode(<<12345678::size(48)>>)
@@ -56,6 +56,8 @@ iex> CrockfordBase32.encode("abc", checksum: true)
 "C5H66C"
 iex> CrockfordBase32.encode("abc", checksum: true, split_size: 3)
 "C5H-66C"
+iex> CrockfordBase32.encode(<<5::size(3)>>)
+"M"
 ```
 
 ### Decode
@@ -82,40 +84,40 @@ iex> CrockfordBase32.decode_to_integer("16J1", checksum: true)
 :error_checksum
 ```
 
-Decode the encoded to a binary:
+Decode the encoded to a bitstring:
 
 ```elixir
-iex> CrockfordBase32.decode_to_binary("00001F319R")
+iex> CrockfordBase32.decode_to_bitstring("00001F319R")
 {:ok, <<0, 0, 0, 188, 97, 78>>}
-iex> CrockfordBase32.decode_to_binary("C5H66")
+iex> CrockfordBase32.decode_to_bitstring("C5H66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_binary("C5H-66")
+iex> CrockfordBase32.decode_to_bitstring("C5H-66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_binary("c5H-66")
+iex> CrockfordBase32.decode_to_bitstring("c5H-66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_binary("c5h-66")
+iex> CrockfordBase32.decode_to_bitstring("c5h-66")
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_binary("c5h66")
+iex> CrockfordBase32.decode_to_bitstring("c5h66")
 {:ok, "abc"}
+iex> CrockfordBase32.decode_to_bitstring("M")
+{:ok, <<5::size(3)>>}
 ```
 
-With a check symbol, and decode the encoded to a binary:
+With a check symbol, and decode the encoded to a bitstring:
 
 ```elixir
-iex> CrockfordBase32.decode_to_binary("C5H66C", checksum: true)
+iex> CrockfordBase32.decode_to_bitstring("C5H66C", checksum: true)
 {:ok, "abc"}
-iex> CrockfordBase32.decode_to_binary("C5H66D", checksum: true)
+iex> CrockfordBase32.decode_to_bitstring("C5H66D", checksum: true)
 :error_checksum
 ```
 
 Some invalid cases:
 
 ```elixir
-iex> CrockfordBase32.decode_to_binary("F1")
+iex> CrockfordBase32.decode_to_bitstring(<<1, 2, 3>>)
 :error
-iex> CrockfordBase32.decode_to_binary(<<1, 2, 3>>)
-:error
-iex> CrockfordBase32.decode_to_binary(<<>>)
+iex> CrockfordBase32.decode_to_bitstring(<<>>)
 :error
 iex> CrockfordBase32.decode_to_integer(<<1, 2, 3>>)
 :error
@@ -127,7 +129,7 @@ iex> CrockfordBase32.decode_to_integer(<<>>)
 
 In some cases, you may want to encode the fixed size bytes, we can do this be with a better performance leverages the benefit of the pattern match of Elixir/Erlang. I use this feature to implement a [ULID](https://github.com/xinz/elixir_ulid) in Elixir.
 
-Refer [ULID specification](https://github.com/ulid/spec#specification), a ULID concatenates a UNIX timestamp in milliseconds(a 48 bit integer) and a randomness in 80 bits, since an integer in bits are padded with some `<<0::1>>` leading when needed, and a ULID in 128 bits after encoded its length is 26 (can be divisible by 5), apply the fixed size encoding with `type: :integer` can efficiently encode/decode a ULID, for example:
+Refer [ULID specification](https://github.com/ulid/spec#specification), a ULID concatenates a UNIX timestamp in milliseconds(a 48 bit integer) and a randomness in 80-bit, since an integer in bits are padded with some `<<0::1>>` leading when needed, and a ULID in 128-bit after encoded its length is 26 (can be divisible by 5), apply the fixed size encoding with `type: :integer` can efficiently encode/decode a ULID, for example:
 
 ```elixir
 defmoule ULID do
@@ -141,7 +143,7 @@ defmoule ULID do
 end
 ```
 
-Then we can use `ULID.Base32.Bits128` to encode/decode a 128 bit binary which concatenates an integer (as UNIX timestamp in millisecond) in 48 bits and a random generated in 80 bits.
+Then we can use `ULID.Base32.Bits128` to encode/decode a 128-bit bitstring which concatenates an integer (as UNIX timestamp in millisecond) in 48-bit and a random generated in 80-bit.
 
 ## Credits
 

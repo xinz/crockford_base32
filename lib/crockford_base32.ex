@@ -22,7 +22,7 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Encode an integer or a binary in Crockford's Base32.
+  Encode an integer or a bitstring in Crockford's Base32.
 
   After encoded, the return string only contains these characters set(`"0123456789ABCDEFGHJKMNPQRSTVWXYZ"`, 10 digits and
   22 letters, excluding `"I"`, `"L"`, `"O"` and `"U"`), if set `checksum: true`, there would be with one of these check 
@@ -47,7 +47,7 @@ defmodule CrockfordBase32 do
       the return string with hyphen(s).
 
   """
-  @spec encode(integer() | binary(), Keyword.t()) :: String.t()
+  @spec encode(integer() | bitstring(), Keyword.t()) :: String.t()
   def encode(value, opts \\ [])
 
   def encode(value, opts) when is_integer(value) do
@@ -57,7 +57,7 @@ defmodule CrockfordBase32 do
     |> may_split_by_split_size_with_hyphen(Keyword.get(opts, :split_size))
   end
 
-  def encode(value, opts) when is_binary(value) do
+  def encode(value, opts) when is_bitstring(value) do
     value
     |> may_checksum(Keyword.get(opts, :checksum, false))
     |> bytes_to_encode()
@@ -65,7 +65,7 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Decode the encoded to an integer, all hyphen(s) are removed and ignore the encoded's case.
+  Decode the encoded string to an integer, all hyphen(s) are removed and ignore the encoded's case.
 
   If the encoded string be with a check symbol, require to use `checksum: true` in decoding.
 
@@ -101,30 +101,30 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Decode the encoded to an string, all hyphen(s) are removed and ignore the encoded's case.
+  Decode the encoded to a bitstring, all hyphen(s) are removed and ignore the encoded's case.
 
-  If the encoded string be with a check symbol, require to use `checksum: true` in decoding.
+  If the encoded bitstring be with a check symbol, require to use `checksum: true` in decoding.
 
   ## Example
 
-      iex> CrockfordBase32.decode_to_binary("C5H66")
+      iex> CrockfordBase32.decode_to_bitstring("C5H66")
       {:ok, "abc"}
-      iex> CrockfordBase32.decode_to_binary("C5H66C", checksum: true)
+      iex> CrockfordBase32.decode_to_bitstring("C5H66C", checksum: true)
       {:ok, "abc"}
-      iex> CrockfordBase32.decode_to_binary("C5H66D", checksum: true)
+      iex> CrockfordBase32.decode_to_bitstring("C5H66D", checksum: true)
       :error_checksum
 
   ## Options
 
   The same to the options of `decode_to_integer/2`.
   """
-  def decode_to_binary(string, opts \\ [])
+  def decode_to_bitstring(string, opts \\ [])
 
-  def decode_to_binary(<<>>, _opts) do
+  def decode_to_bitstring(<<>>, _opts) do
     error_invalid()
   end
 
-  def decode_to_binary(string, opts) when is_binary(string) do
+  def decode_to_bitstring(string, opts) when is_bitstring(string) do
     string
     |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
@@ -288,7 +288,7 @@ defmodule CrockfordBase32 do
     {input, [<<calculate_checksum(input)::integer>>]}
   end
 
-  defp may_checksum(input, true) when is_binary(input) do
+  defp may_checksum(input, true) when is_bitstring(input) do
     int = bytes_to_integer_nopadding(input, 0)
     {input, [<<calculate_checksum(int)::integer>>]}
   end
@@ -322,6 +322,18 @@ defmodule CrockfordBase32 do
   @doc false
   def error_invalid(), do: :error
 
+  defp calculate_padding_in_decoding(bitstring) do
+    for(<<x::size(1) <- bitstring>>, do: x)
+    |> Enum.reverse()
+    |> Enum.drop_while(fn
+      0 -> true
+      1 -> false
+    end)
+    |> Enum.reduce(<<>>, fn i, acc ->
+      <<i::size(1), acc::bitstring>>
+    end)
+  end
+
   @compile {:inline, decode_string: 2}
   defp decode_string(<<>>, acc) do
     decoded_size = bit_size(acc)
@@ -336,7 +348,9 @@ defmodule CrockfordBase32 do
         case acc do
           <<decoded::bitstring-size(data_size), 0::size(padding_size)>> ->
             {:ok, decoded}
-
+          <<decoded::bitstring-size(data_size), rest::size(padding_size)>> ->
+            trimmed = calculate_padding_in_decoding(<<rest::size(padding_size)>>)
+            {:ok, <<decoded::bitstring, trimmed::bitstring>>}
           _ ->
             error_invalid()
         end

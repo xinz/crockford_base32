@@ -10,10 +10,10 @@ defmodule CrockfordBase32FixedEncodingTest do
   end
 
   test "decode 8-bits" do
-    assert Encoding.Fixed8.decode("C8") == CrockfordBase32.decode_to_binary("C8")
-    assert Encoding.Fixed8.decode("C8") == CrockfordBase32.decode_to_binary("c8")
-    assert Encoding.Fixed8.decode("DM") == CrockfordBase32.decode_to_binary("DM")
-    assert Encoding.Fixed8.decode("f0") == CrockfordBase32.decode_to_binary("F0")
+    assert Encoding.Fixed8.decode("C8") == CrockfordBase32.decode_to_bitstring("C8")
+    assert Encoding.Fixed8.decode("C8") == CrockfordBase32.decode_to_bitstring("c8")
+    assert Encoding.Fixed8.decode("DM") == CrockfordBase32.decode_to_bitstring("DM")
+    assert Encoding.Fixed8.decode("f0") == CrockfordBase32.decode_to_bitstring("F0")
   end
 
   test "encode 128-bits" do
