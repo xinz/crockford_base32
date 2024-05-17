@@ -118,6 +118,7 @@ defmodule CrockfordBase32 do
 
   The same to the options of `decode_to_integer/2`.
   """
+  @spec decode_to_bitstring(String.t(), Keyword.t()) :: {:ok, bitstring()} | :error | :error_checksum
   def decode_to_bitstring(string, opts \\ [])
 
   def decode_to_bitstring(<<>>, _opts) do
