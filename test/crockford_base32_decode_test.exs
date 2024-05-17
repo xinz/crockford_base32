@@ -58,18 +58,26 @@ defmodule CrockfordBase32DecodeTest do
     assert CrockfordBase32.decode_to_integer(<<1, 2, 3>>) == :error
   end
 
-  test "encode and decode a bitstring" do
+  test "calculate padding in decoding" do
     bits = <<1, 143, 130, 122, 250, 181, 117, 248, 153, 23, 163, 155, 135, 78, 106, 99>>
     bits2 = <<0::size(2), bits::bitstring>>
     input = CrockfordBase32.encode(bits2)
     assert input == "01HY17NYNNEQW9J5X3KE3MWTK3"
-    {:ok, bitstring} = CrockfordBase32.decode_to_bitstring(input) 
+    {:ok, bitstring} = CrockfordBase32.decode_to_bitstring(input)
     assert bitstring == bits2
     
     input = <<0::size(2), 1, 2, 3>>
     encoded = CrockfordBase32.encode(input)
     {:ok, res} = CrockfordBase32.decode_to_bitstring(encoded)
     assert input == res
+  end
+
+  test "decoding may remove zero-bit trailing padding" do
+    input = <<0, 99, 225, 172, 113, 185, 95, 71, 110, 85, 69, 28, 118, 18, 63, 109, 0::size(2)>>
+    res = CrockfordBase32.encode(input)
+    assert res == "01HY3B3HQ5FMEVJN8ME7C4HZDM"
+    {:ok, s} = CrockfordBase32.decode_to_bitstring(res)
+    assert <<s::bitstring, 0::size(2)>> == input
   end
 
   defp assert_encode_and_decode_binary(items, opts \\ []) do
