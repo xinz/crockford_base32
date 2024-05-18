@@ -143,7 +143,67 @@ defmoule ULID do
 end
 ```
 
-Then we can use `ULID.Base32.Bits128` to encode/decode a 128-bit bitstring which concatenates an integer (as UNIX timestamp in millisecond) in 48-bit and a random generated in 80-bit.
+Then we can use `ULID.Base32.Bits128` to encode/decode a 128-bit bitstring which concatenates an integer (as UNIX timestamp in millisecond) in 48-bit and a randomly generated in 80-bit.
+
+#### Padding 0-bit when decoding
+
+Crockford's Base32 avoids the use of padding characters by zero-extending the data to ensure the bit-length is a multiple of 5, there is no need to retain additional padding bits(`<<0::size(1)>>`) in the decoded result, so there may some decoded bits that are not as complete as expected, for example:
+
+A string(`"01HY3B3HQ5FMEVJN8ME7C4HZDM"`) is a 26 length randomly generated string as a suffix of [TypeID](https://github.com/jetify-com/typeid), TypeID's specification defines its suffix base32 encoding be with two zeroed bits are pre-pended to the 128-bits of the UUID, resulting in 130-bits of data.
+
+Notice: Please ignore case in the following parameter `"s"`, CrockfordBase32 is not case sensitive, but TypeID only uses lowercase.
+
+```elixir
+iex> s = "01HY3B3HQ5FMEVJN8ME7C4HZDM"
+iex> {:ok, input} = CrockfordBase32.decode_to_bitstring(s)
+{:ok, <<0, 99, 225, 172, 113, 185, 95, 71, 110, 85, 69, 28, 118, 18, 63, 109>>}
+iex> bit_size(input)
+128
+iex> CrockfordBase32.encode(<<input::bitstring, 0::size(2)>>)
+"01HY3B3HQ5FMEVJN8ME7C4HZDM"
+iex> <<0::size(2), uuid::bitstring>> = <<input::bitstring, 0::size(2)>>
+<<0, 99, 225, 172, 113, 185, 95, 71, 110, 85, 69, 28, 118, 18, 63, 109,
+  0::size(2)>>
+iex> uuid
+<<1, 143, 134, 177, 198, 229, 125, 29, 185, 85, 20, 113, 216, 72, 253, 180>>
+```
+
+We must explicitly append two zero bits(`<<0::size(2)>>`) into the `<<0, 99, 225, 172, 113, 185, 95, 71, 110, 85, 69, 28, 118, 18, 63, 109>>` and only later we can get the correct `uuid` bitstring.
+
+Similar to TypeID, pre-defining a fixed-size bit string encoding, we can do this:
+
+```elixir
+defmoule Typeid do
+
+  defmoule Base32.Bits130 do
+    use CrockfordBase32,
+      bits_size: 130
+  end
+
+end
+```
+
+Use `"Typeid.Base32.Bits130"` and then do not need to manually to pad the zero bit(s), it will use its fixed size to handle the padding.
+
+```
+iex> Typeid.Base32.Bits130.decode("01HY3B3HQ5FMEVJN8ME7C4HZDM")
+{:ok,
+ <<0, 99, 225, 172, 113, 185, 95, 71, 110, 85, 69, 28, 118, 18, 63, 109,
+   0::size(2)>>}
+iex> {:ok, input} = Typeid.Base32.Bits130.decode("01HY3B3HQ5FMEVJN8ME7C4HZDM")
+{:ok,
+ <<0, 99, 225, 172, 113, 185, 95, 71, 110, 85, 69, 28, 118, 18, 63, 109,
+   0::size(2)>>}
+iex> bit_size(input)
+130
+iex> <<0::size(2), uuid::bitstring>> = input
+<<0, 99, 225, 172, 113, 185, 95, 71, 110, 85, 69, 28, 118, 18, 63, 109,
+  0::size(2)>>
+iex> uuid
+<<1, 143, 134, 177, 198, 229, 125, 29, 185, 85, 20, 113, 216, 72, 253, 180>>
+iex> Typeid.Base32.Bits130.encode(input)
+"01HY3B3HQ5FMEVJN8ME7C4HZDM"
+```
 
 ## Credits
 
