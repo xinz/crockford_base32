@@ -6,7 +6,7 @@ defmodule CrockfordBase32.MixProject do
   def project do
     [
       app: :crockford_base32,
-      version: "0.7.0",
+      version: "0.7.1",
       elixir: "~> 1.7",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
