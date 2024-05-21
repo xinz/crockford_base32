@@ -46,6 +46,13 @@ defmodule CrockfordBase32DecodeTest do
     assert CrockfordBase32.decode_to_integer("16J1", checksum: true) == :error_checksum
   end
 
+  test "decode bitstring with checksum" do
+    input = <<1, 2, 3, 0::size(1)>>
+    result = CrockfordBase32.encode(input, checksum: true)
+    assert result == "04106C"
+    assert {:ok, <<1, 2, 3>>} = CrockfordBase32.decode_to_bitstring(result, checksum: true)
+  end
+
   test "decode with zero pad leading" do
     assert CrockfordBase32.decode_to_bitstring("05ZSQZWDJ0") == {:ok, <<1, 127, 155, 255, 141, 144>>}
     assert CrockfordBase32.decode_to_bitstring("04106") == {:ok, <<1, 2, 3>>}

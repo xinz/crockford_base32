@@ -118,32 +118,34 @@ defmodule CrockfordBase32 do
 
   The same to the options of `decode_to_integer/2`.
   """
-  @spec decode_to_bitstring(String.t(), Keyword.t()) :: {:ok, bitstring()} | :error | :error_checksum
-  def decode_to_bitstring(string, opts \\ [])
+  @spec decode_to_bitstring(bitstring(), Keyword.t()) :: {:ok, bitstring()} | :error | :error_checksum
+  def decode_to_bitstring(input, opts \\ [])
 
   def decode_to_bitstring(<<>>, _opts) do
     error_invalid()
   end
 
-  def decode_to_bitstring(string, opts) when is_bitstring(string) do
-    string
+  def decode_to_bitstring(input, opts) when is_bitstring(input) do
+    input
     |> remove_hyphen()
     |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
-    |> decoding_string()
+    |> decoding_bitstring()
   catch
     _error ->
       error_invalid()
   end
 
-  defp may_split_with_checksum(str, false), do: {str, nil}
+  defp may_split_with_checksum(input, false), do: {input, nil}
 
-  defp may_split_with_checksum(str, true) do
-    String.split_at(str, -1)
+  defp may_split_with_checksum(input, true) when is_binary(input) do
+    String.split_at(input, -1)
   end
+  defp may_split_with_checksum(input, true), do: {input, nil}
 
-  defp remove_hyphen(str) do
-    String.replace(str, "-", "")
+  defp remove_hyphen(input) when is_binary(input) do
+    String.replace(input, "-", "")
   end
+  defp remove_hyphen(input), do: input
 
   defp decoding_integer({str, nil}) do
     {:ok, decoding_integer(str, 0)}
@@ -169,23 +171,35 @@ defmodule CrockfordBase32 do
     decoding_integer(rest, acc)
   end
 
-  defp decoding_string({str, nil}) do
-    decode_string(str, <<>>)
+  defp checksum_valid?(bitstring, input_checksum) do
+    calculated_checksum = bitstring |> bytes_to_integer_nopadding(0) |> calculate_checksum()
+    calculated_checksum == input_checksum
   end
 
-  defp decoding_string({str, <<checksum::integer-size(8)>>}) do
-    with {:ok, decoded} = result <- decode_string(str, <<>>),
-         checksum_of_decoded <-
-           decoded
-           |> bytes_to_integer_nopadding(0)
-           |> calculate_checksum() do
-      if checksum_of_decoded != checksum do
-        invalid_checksum()
-      else
-        result
-      end
+  defp verify_checksum(decoded, full_decoded, checksum) do
+    # double checksum with two kinds of decoded bitstrings in sequence
+    if checksum_valid?(decoded, checksum) || checksum_valid?(full_decoded, checksum) do
+      :ok
     else
-      error ->
+      invalid_checksum()
+    end
+  end
+
+  defp decoding_bitstring({bitstring, nil}) do
+    case do_decode_bitstring(bitstring, <<>>) do
+      {:ok, decoded, _} ->
+        {:ok, decoded}
+      :error ->
+        :error
+    end
+  end
+
+  defp decoding_bitstring({bitstring, <<checksum::integer-size(8)>>}) do
+    with {:ok, decoded, full_decoded} <- do_decode_bitstring(bitstring, <<>>),
+         :ok <- verify_checksum(decoded, full_decoded, checksum) do
+      {:ok, decoded}
+    else
+      error when is_atom(error) ->
         error
     end
   end
@@ -335,23 +349,20 @@ defmodule CrockfordBase32 do
     end)
   end
 
-  @compile {:inline, decode_string: 2}
-  defp decode_string(<<>>, acc) do
+  @compile {:inline, do_decode_bitstring: 2}
+  defp do_decode_bitstring(<<>>, acc) do
     decoded_size = bit_size(acc)
-
     case rem(decoded_size, 8) do
       0 ->
-        {:ok, acc}
-
+        {:ok, acc, acc}
       padding_size ->
         data_size = decoded_size - padding_size
-
         case acc do
           <<decoded::bitstring-size(data_size), 0::size(padding_size)>> ->
-            {:ok, decoded}
+            {:ok, decoded, acc}
           <<decoded::bitstring-size(data_size), rest::size(padding_size)>> ->
             trimmed = calculate_padding_in_decoding(<<rest::size(padding_size)>>)
-            {:ok, <<decoded::bitstring, trimmed::bitstring>>}
+            {:ok, <<decoded::bitstring, trimmed::bitstring>>, acc}
           _ ->
             error_invalid()
         end
@@ -359,17 +370,17 @@ defmodule CrockfordBase32 do
   end
 
   # also generate the alphabet(A-Z) in lowercase when decode with accumulator
-  @compile {:inline, decode_string: 2}
+  @compile {:inline, do_decode_bitstring: 2}
   for {alphabet, index} <- Enum.with_index(CrockfordBase32.Symbol.alphabet_set()) do
-    defp decode_string(<<unquote(alphabet), rest::bitstring>>, acc) do
-      decode_string(rest, <<acc::bitstring, unquote(index)::5>>)
+    defp do_decode_bitstring(<<unquote(alphabet), rest::bitstring>>, acc) do
+      do_decode_bitstring(rest, <<acc::bitstring, unquote(index)::5>>)
     end
     if alphabet in ?A..?Z do
-      defp decode_string(<<unquote(alphabet+32), rest::bitstring>>, acc) do
-        decode_string(rest, <<acc::bitstring, unquote(index)::5>>)
+      defp do_decode_bitstring(<<unquote(alphabet+32), rest::bitstring>>, acc) do
+        do_decode_bitstring(rest, <<acc::bitstring, unquote(index)::5>>)
       end
     end
   end
-  defp decode_string(_input, _acc), do: throw :error
+  defp do_decode_bitstring(_input, _acc), do: throw :error
 
 end
