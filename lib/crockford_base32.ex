@@ -12,11 +12,12 @@ defmodule CrockfordBase32 do
     opts = Macro.prewalk(opts, &Macro.expand(&1, __CALLER__))
     bits_size = Keyword.get(opts, :bits_size)
     type = Keyword.get(opts, :type, :bitstring)
+    alphabet = Keyword.get(opts, :alphabet)
 
     if bits_size != nil do
       quote do
         require FixedEncoding
-        FixedEncoding.generate(unquote(bits_size), unquote(type))
+        FixedEncoding.generate(unquote(bits_size), unquote(type), unquote(alphabet))
       end
     end
   end

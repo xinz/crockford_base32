@@ -6,7 +6,7 @@ defmodule CrockfordBase32.FixedEncoding.Bitstring do
 
   @arg "arg"
 
-  defmacro generate(bits_size, block_size) when bits_size != nil do
+  defmacro generate(bits_size, block_size, alphabet) when bits_size != nil do
     {rem, arg_num, padding_size} = calculate_base(bits_size, block_size)
 
     pattern_match_of_arg = generate_encode_args(arg_num, rem, block_size)
@@ -15,7 +15,7 @@ defmodule CrockfordBase32.FixedEncoding.Bitstring do
     decode_body_expr = generate_decode_body(arg_num, rem, block_size)
 
     quote do
-      use CrockfordBase32.Symbol
+      use CrockfordBase32.Symbol, alphabet: unquote(alphabet)
 
       def encode(unquote({:<<>>, [], pattern_match_of_arg})) do
         unquote({:<<>>, [], encode_body_expr})

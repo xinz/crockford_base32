@@ -103,4 +103,37 @@ defmodule CrockfordBase32FixedEncodingTest do
     assert encoded == "034"
     assert Encoding.Fixed15Integer.decode(encoded) == {:ok, <<data::size(15)>>}
   end
+
+  test "use customized alphabet" do
+    bytes = <<0, 99, 238, 51, 201, 73, 30, 125, 174, 239, 40, 141, 228, 224, 146, 183, 2::size(2)>>
+    str = Encoding.Typeid.encode(bytes)
+    assert {:ok, ^bytes} = Encoding.Typeid.decode(str)
+
+    invalid_decoding = "1234567o777777777777777777"
+    assert Encoding.Typeid.decode(invalid_decoding) == :error
+    valid_decoding = "1234567x777777777777777777"
+    assert {:ok, _} = Encoding.Typeid.decode(valid_decoding)
+
+    invalid_decoding = "1234567l888888888888888888"
+    assert Encoding.Typeid.decode(invalid_decoding) == :error
+    valid_decoding = "1234567x888888888888888888"
+    assert {:ok, _} = Encoding.Typeid.decode(valid_decoding)
+
+    invalid_decoding = "1234567i999999999999999999"
+    assert Encoding.Typeid.decode(invalid_decoding) == :error
+    valid_decoding = "1234567x999999999999999999"
+    assert {:ok, _} = Encoding.Typeid.decode(valid_decoding)
+  end
+
+  test "invalid alphabet" do
+    assert_raise RuntimeError,
+      ~r/Requires parameter :alphabet to be as a list/,
+      fn ->
+        defmodule InvalidAlphabet do
+          use CrockfordBase32,
+            bits_size: 130,
+            alphabet: "0123456789abcdefghjkmnpqrstvwxyz"
+        end
+      end
+  end
 end
