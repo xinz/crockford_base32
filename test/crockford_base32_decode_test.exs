@@ -87,6 +87,12 @@ defmodule CrockfordBase32DecodeTest do
     assert <<s::bitstring, 0::size(2)>> == input
   end
 
+  test "test i/l/o letters" do
+    {:ok, bytes} = CrockfordBase32.decode_to_bitstring("I23456789OL23456789OI23456")
+    assert bytes == <<8, 134, 66, 152, 232, 72, 2, 33, 144, 166, 58, 18, 0, 136, 100, 41, 2::size(2)>>
+    assert {:ok, ^bytes} = CrockfordBase32.decode_to_bitstring("i23456789ol23456789oi23456")
+  end
+
   defp assert_encode_and_decode_binary(items, opts \\ []) do
     Enum.map(items, fn item ->
       {:ok, decoded} =

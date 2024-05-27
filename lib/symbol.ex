@@ -30,6 +30,9 @@ defmodule CrockfordBase32.Symbol do
         defp d(73), do: 1
         defp d(76), do: 1
         defp d(79), do: 0
+        defp d(105), do: 1
+        defp d(108), do: 1
+        defp d(111), do: 0
         defp d(_), do: throw :error
       end
 

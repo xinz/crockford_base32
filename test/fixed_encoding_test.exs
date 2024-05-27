@@ -38,6 +38,12 @@ defmodule CrockfordBase32FixedEncodingTest do
     assert data == decoded
   end
 
+  test "size fixed case with i/l/o" do
+    {:ok, bytes} = Encoding.Fixed130.decode("I23456789OL23456789OI23456")
+    assert bytes == <<8, 134, 66, 152, 232, 72, 2, 33, 144, 166, 58, 18, 0, 136, 100, 41, 2::size(2)>>
+    assert {:ok, ^bytes} = Encoding.Fixed130.decode("i23456789ol23456789oi23456")
+  end
+
   test "encode invalid" do
     assert Encoding.Fixed8.encode("abc") == :error
     assert Encoding.Fixed128.encode("abcdefgh") == :error

@@ -337,7 +337,7 @@ defmodule CrockfordBase32 do
   @doc false
   def error_invalid(), do: :error
 
-  defp calculate_padding_in_decoding(bitstring) do
+  defp calculate_padding_in_decoding(bitstring, size) when size > 5 do
     for(<<x::size(1) <- bitstring>>, do: x)
     |> Enum.reverse()
     |> Enum.drop_while(fn
@@ -348,6 +348,7 @@ defmodule CrockfordBase32 do
       <<i::size(1), acc::bitstring>>
     end)
   end
+  defp calculate_padding_in_decoding(bitstring, _size), do: bitstring
 
   @compile {:inline, do_decode_bitstring: 2}
   defp do_decode_bitstring(<<>>, acc) do
@@ -361,7 +362,7 @@ defmodule CrockfordBase32 do
           <<decoded::bitstring-size(data_size), 0::size(padding_size)>> ->
             {:ok, decoded, acc}
           <<decoded::bitstring-size(data_size), rest::size(padding_size)>> ->
-            trimmed = calculate_padding_in_decoding(<<rest::size(padding_size)>>)
+            trimmed = calculate_padding_in_decoding(<<rest::size(padding_size)>>, padding_size)
             {:ok, <<decoded::bitstring, trimmed::bitstring>>, acc}
           _ ->
             error_invalid()
@@ -381,6 +382,14 @@ defmodule CrockfordBase32 do
       end
     end
   end
+  # I L O
+  defp do_decode_bitstring(<<"I", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
+  defp do_decode_bitstring(<<"L", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
+  defp do_decode_bitstring(<<"O", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 0::5>>)
+  # i l o
+  defp do_decode_bitstring(<<"i", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
+  defp do_decode_bitstring(<<"l", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
+  defp do_decode_bitstring(<<"o", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 0::5>>)
   defp do_decode_bitstring(_input, _acc), do: throw :error
 
 end
