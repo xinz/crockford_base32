@@ -205,6 +205,20 @@ iex> Typeid.Base32.Bits130.encode(input)
 "01HY3B3HQ5FMEVJN8ME7C4HZDM"
 ```
 
+#### Custom alphabet
+
+There is a way to custom alphabet in the encoding, for example:
+
+```elixir
+  defmodule Typeid.Base32 do
+    use CrockfordBase32,
+      bits_size: 130,
+      alphabet: '0123456789abcdefghjkmnpqrstvwxyz'
+  end
+```
+
+Use `"Typeid.Base32"` to satisfy TypeID's specification uses `0123456789abcdefghjkmnpqrstvwxyz` as its alphabet.
+
 ## Credits
 
 These libraries or tools are very helpful in understanding and reference, thanks!
