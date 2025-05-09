@@ -1,5 +1,8 @@
 # CrockfordBase32
 
+[![Module Version](https://img.shields.io/hexpm/v/crockford_base32.svg)](https://hex.pm/packages/crockford_base32)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/crockford_base32)
+
 An Elixir Implementation of Douglas Crockford's Base32 encoding.
 
 Please see [https://www.crockford.com/base32.html](https://www.crockford.com/base32.html).
@@ -11,7 +14,7 @@ This library can encode an integer or a bitstring in Crockford's Base32, and als
 ```elixir
 def deps do
   [
-    {:crockford_base32, "~> 0.7"}
+    {:crockford_base32, "~> 0.8"}
   ]
 end
 ```
