@@ -40,7 +40,7 @@ defmodule CrockfordBase32.Encoding do
   defmodule Typeid do
     use CrockfordBase32,
       bits_size: 130,
-      alphabet: '0123456789abcdefghjkmnpqrstvwxyz'
+      alphabet: ~c"0123456789abcdefghjkmnpqrstvwxyz"
   end
 
 end

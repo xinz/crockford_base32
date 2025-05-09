@@ -73,7 +73,7 @@ defmodule CrockfordBase32.Symbol do
   def alphabet_set() do
     # encoding symbol charlist: '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
     # check symbol charlist: '*~$=U'
-    '0123456789ABCDEFGHJKMNPQRSTVWXYZ*~$=U'
+    ~c"0123456789ABCDEFGHJKMNPQRSTVWXYZ*~$=U"
   end
 
 end
