@@ -3,11 +3,9 @@
 [![Module Version](https://img.shields.io/hexpm/v/crockford_base32.svg)](https://hex.pm/packages/crockford_base32)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/crockford_base32)
 
-Crockford Base32 encoding and decoding for Elixir. It supports non-negative
-integers, arbitrary bitstrings, optional check symbols, and fixed-width encoders.
+Crockford Base32 encoding and decoding for integers and bitstrings in Elixir. It supports non-negative integers, arbitrary bitstrings, optional check symbols, and fixed-width encoders.
 
-See [Crockford's Base32 specification](https://www.crockford.com/base32.html)
-for the format.
+See [Crockford's Base32 specification](https://www.crockford.com/base32.html) for the format.
 
 ## Installation
 
@@ -48,45 +46,69 @@ iex> CrockfordBase32.encode(<<5::size(3)>>)
 The default output alphabet is `0123456789ABCDEFGHJKMNPQRSTVWXYZ`. Check
 symbols additionally use `*~$=U`.
 
-## Fixed-width encoders
+## Fixed-width encoding
 
-Use a generated encoder when the bit length must be preserved exactly, such as for ULIDs, UUID-derived identifiers, or TypeID suffixes:
+Generate fixed-width `encode/1` and `decode/1` functions when the input has a
+known bit width. `decode/1` always returns a bitstring with the configured
+width.
+
+- `type: :bitstring` is the default and accepts only a bitstring with the configured size.
+- `type: :integer` also accepts a non-negative integer. Validate the integer range in your application when fixed-width truncation would be unacceptable.
+
+### ULID: a 128-bit integer
+
+A [ULID](https://github.com/ulid/spec) combines a 48-bit Unix timestamp in
+milliseconds with 80 bits of randomness. Use `type: :integer` to preserve the
+numeric leading-zero padding required by its 26-character representation.
 
 ```elixir
-defmodule MyApp.ULIDBase32 do
+defmodule MyApp.ULID.Base32 do
   use CrockfordBase32,
     bits_size: 128,
     type: :integer
 end
 
-value = <<1, 127, 155, 239, 108, 123, 101, 162, 98, 133, 136, 76, 221, 14, 158, 253>>
-encoded = MyApp.ULIDBase32.encode(value)
-{:ok, ^value} = MyApp.ULIDBase32.decode(encoded)
+timestamp_ms = 1_648_103_085_000
+randomness = <<0::size(80)>>
+ulid = <<timestamp_ms::unsigned-size(48), randomness::bitstring>>
+
+encoded = MyApp.ULID.Base32.encode(ulid)
+# "01FYX9JMY80000000000000000"
+
+{:ok, ^ulid} = MyApp.ULID.Base32.decode(encoded)
 ```
 
-Generated modules expose `encode/1` and `decode/1`:
+### TypeID: a 130-bit bitstring
 
-- `type: :bitstring` is the default and accepts only a bitstring with the
-  configured size.
-- `type: :integer` also accepts a non-negative integer. `decode/1` still
-  returns the configured-width bitstring. Validate the integer range in your
-  application when truncation would be unacceptable.
-
-A custom alphabet must be a charlist:
+A [TypeID](https://github.com/jetify-com/typeid) suffix is 26 lowercase Base32
+symbols. It represents two leading zero bits followed by a 128-bit UUID, so use
+a fixed-width bitstring codec with TypeID's lowercase alphabet:
 
 ```elixir
-defmodule MyApp.TypeIDBase32 do
+defmodule MyApp.TypeID.Base32 do
   use CrockfordBase32,
     bits_size: 130,
-    alphabet: '0123456789abcdefghjkmnpqrstvwxyz'
+    alphabet: ~c"0123456789abcdefghjkmnpqrstvwxyz"
 end
 ```
 
-## Bit-length note
+The variable-length decoder cannot infer this 130-bit width and returns 128
+bits for the sample suffix. The fixed-width decoder preserves all 130 bits:
 
-Variable-length Base32 encoding pads the final group with zero bits. During
-decoding, trailing zero data bits cannot always be distinguished from that
-padding. Use a fixed-width encoder when every bit must round-trip exactly.
+```elixir
+suffix = "01hy3b3hq5fmevjn8me7c4hzdm"
+
+{:ok, variable_width} = CrockfordBase32.decode_to_bitstring(suffix)
+bit_size(variable_width)
+# 128
+
+{:ok, type_id} = MyApp.TypeID.Base32.decode(suffix)
+bit_size(type_id)
+# 130
+
+MyApp.TypeID.Base32.encode(type_id)
+# "01hy3b3hq5fmevjn8me7c4hzdm"
+```
 
 ## Credits
 
