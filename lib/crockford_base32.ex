@@ -1,6 +1,7 @@
 defmodule CrockfordBase32 do
   @moduledoc """
-  The main module implements Douglas Crockford's [Base32](https://www.crockford.com/base32.html) encoding.
+  Encodes and decodes non-negative integers and bitstrings with
+  [Crockford's Base32](https://www.crockford.com/base32.html).
   """
 
   use CrockfordBase32.Symbol
@@ -12,6 +13,12 @@ defmodule CrockfordBase32 do
   @integer_binary_threshold Integer.pow(2, 50)
   @checksum_chunk_bits 20
 
+  @doc """
+  Generates fixed-width `encode/1` and `decode/1` functions in the calling module.
+
+  `:bits_size` sets the exact bit length. `:type` is `:bitstring` (default) or
+  `:integer`; `:alphabet` accepts an optional custom charlist.
+  """
   defmacro __using__(opts \\ []) do
     alias CrockfordBase32.FixedEncoding
     opts = Macro.prewalk(opts, &Macro.expand(&1, __CALLER__))
@@ -28,32 +35,37 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Encode an integer or a bitstring in Crockford's Base32.
+  Encodes a non-negative integer or bitstring.
 
-  After encoded, the return string only contains these characters set(`"0123456789ABCDEFGHJKMNPQRSTVWXYZ"`, 10 digits and
-  22 letters, excluding `"I"`, `"L"`, `"O"` and `"U"`), if set `checksum: true`, there would be with one of these check
-  symbols(`"*~$=U"`) or the previous 10 digits and 22 letters as the last character.
+  Bitstrings may have any bit length. Output uses the default Crockford alphabet,
+  `"0123456789ABCDEFGHJKMNPQRSTVWXYZ"`.
 
-  ## Example
+  ## Checksums
 
-      iex> CrockfordBase32.encode(1234567)
-      "15NM7"
-      iex> CrockfordBase32.encode(1234567, checksum: true)
-      "15NM7S"
-      iex> CrockfordBase32.encode(1234567, split_size: 3)
-      "15N-M7"
-      iex> CrockfordBase32.encode(1234567, split_size: 3, checksum: true)
-      "15N-M7S"
+  Setting `checksum: true` appends one Crockford check symbol after the payload.
+  The symbol is calculated modulo 37; for bitstrings, the calculation uses the
+  original, unpadded bits. It helps detect accidental transcription errors, but
+  is not a cryptographic integrity or authentication mechanism.
+
+  Check symbols extend the output alphabet with `"*~$=U"`. `split_size` is
+  applied after the check symbol is appended, so it is grouped with the rest of
+  the output.
 
   ## Options
 
-    * `:checksum`, optional, a boolean, by defaults to `false`, if set it as `true` will calculate a check
-      symbol and append it to the return string.
-    * `:split_size`, optional, a positive integer, if set it will use it as a step size to split
-      the return string with hyphen(s).
+    * `:checksum` - set to `true` to append a check symbol.
+    * `:split_size` - a positive group size; groups are separated by hyphens.
 
+  ## Examples
+
+      iex> CrockfordBase32.encode(1234)
+      "16J"
+      iex> CrockfordBase32.encode(1234, checksum: true)
+      "16JD"
+      iex> CrockfordBase32.encode("abc", checksum: true, split_size: 3)
+      "C5H-66C"
   """
-  @spec encode(integer() | bitstring(), Keyword.t()) :: String.t()
+  @spec encode(non_neg_integer() | bitstring(), Keyword.t()) :: String.t()
   def encode(value, opts \\ [])
 
   def encode(value, opts) when is_integer(value) do
@@ -70,25 +82,30 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Decode the encoded string to an integer, all hyphen(s) are removed and ignore the encoded's case.
+  Decodes a Crockford Base32 string to a non-negative integer.
 
-  If the encoded string be with a check symbol, require to use `checksum: true` in decoding.
+  Decoding ignores hyphens and is case-insensitive. `I` and `L` are aliases for
+  `1`, and `O` is an alias for `0`.
 
-  ## Example
+  ## Checksums
 
-      iex> CrockfordBase32.decode_to_integer("16JD", checksum: true)
+  With `checksum: true`, the final non-hyphen symbol is treated as a check
+  symbol and excluded from the payload. A mismatched valid check symbol returns
+  `:error_checksum`; malformed input returns `:error`.
+
+  Use this option only for values encoded with `checksum: true`; otherwise the
+  final payload symbol is interpreted as a check symbol.
+
+  ## Examples
+
+      iex> CrockfordBase32.decode_to_integer("16-j")
       {:ok, 1234}
-      iex> CrockfordBase32.decode_to_integer("16j")
+      iex> CrockfordBase32.decode_to_integer("16-JD", checksum: true)
       {:ok, 1234}
-      iex> CrockfordBase32.decode_to_integer("16j*", checksum: true)
+      iex> CrockfordBase32.decode_to_integer("16J1", checksum: true)
       :error_checksum
-
-  ## Options
-
-    * `:checksum`, optional, a boolean, by defaults to `false` means expect input the encoded string without a check symbol in its tail,
-      if set it as `true`, please ensure input encoded is a string be with a check symbol, or return  `:error_checksum`.
   """
-  @spec decode_to_integer(String.t(), Keyword.t()) :: {:ok, integer} | :error | :error_checksum
+  @spec decode_to_integer(String.t(), Keyword.t()) :: {:ok, non_neg_integer()} | :error | :error_checksum
   def decode_to_integer(string, opts \\ [])
 
   def decode_to_integer(<<>>, _opts) do
@@ -106,22 +123,29 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Decode the encoded to a bitstring, all hyphen(s) are removed and ignore the encoded's case.
+  Decodes a Crockford Base32 string to a bitstring.
 
-  If the encoded bitstring be with a check symbol, require to use `checksum: true` in decoding.
+  Decoding ignores hyphens and is case-insensitive. Because final zero padding
+  is ambiguous, use a fixed-width encoder when the original bit length must be
+  preserved.
 
-  ## Example
+  ## Checksums
+
+  With `checksum: true`, the final non-hyphen symbol is treated as a check
+  symbol and excluded from the payload. A mismatched valid check symbol returns
+  `:error_checksum`; malformed input returns `:error`.
+
+  Use this option only for values encoded with `checksum: true`; otherwise the
+  final payload symbol is interpreted as a check symbol.
+
+  ## Examples
 
       iex> CrockfordBase32.decode_to_bitstring("C5H66")
       {:ok, "abc"}
-      iex> CrockfordBase32.decode_to_bitstring("C5H66C", checksum: true)
+      iex> CrockfordBase32.decode_to_bitstring("C5H-66C", checksum: true)
       {:ok, "abc"}
       iex> CrockfordBase32.decode_to_bitstring("C5H66D", checksum: true)
       :error_checksum
-
-  ## Options
-
-  The same to the options of `decode_to_integer/2`.
   """
   @spec decode_to_bitstring(bitstring(), Keyword.t()) :: {:ok, bitstring()} | :error | :error_checksum
   def decode_to_bitstring(input, opts \\ [])
