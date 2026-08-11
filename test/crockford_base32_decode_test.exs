@@ -23,6 +23,61 @@ defmodule CrockfordBase32DecodeTest do
     assert_encode_and_decode_integer(items)
   end
 
+  test "decode large and noncanonical integer payloads" do
+    huge = Integer.pow(2, 16_384) + Integer.pow(2, 8_193) + Integer.pow(2, 37) + 31
+    encoded = CrockfordBase32.encode(huge, checksum: true)
+
+    assert {:ok, ^huge} = CrockfordBase32.decode_to_integer(encoded, checksum: true)
+
+    cases = [
+      {"*", 32},
+      {"U", 36},
+      {"~*000", 35_651_584},
+      {"UUUUU", 38_966_436},
+      {"*~$=U", 34_671_748}
+    ]
+
+    Enum.each(cases, fn {input, expected} ->
+      assert CrockfordBase32.decode_to_integer(input) == {:ok, expected}
+    end)
+
+    assert CrockfordBase32.decode_to_integer("10*", checksum: true) == {:ok, 32}
+    assert CrockfordBase32.decode_to_integer("14U", checksum: true) == {:ok, 36}
+    assert CrockfordBase32.decode_to_integer("**", checksum: true) == {:ok, 32}
+  end
+
+  test "decode canonical integer payloads with numeric bit alignment" do
+    cases = [
+      {"1", 1},
+      {"10", 32},
+      {"100", 1024},
+      {"0001", 1},
+      {"I", 1},
+      {"L", 1},
+      {"O", 0},
+      {"i", 1},
+      {"l", 1},
+      {"o", 0},
+      {"16j", 1234}
+    ]
+
+    Enum.each(cases, fn {input, expected} ->
+      assert CrockfordBase32.decode_to_integer(input) == {:ok, expected}
+    end)
+
+    assert CrockfordBase32.decode_to_integer("10*", checksum: true) == {:ok, 32}
+    assert CrockfordBase32.decode_to_integer("100S", checksum: true) == {:ok, 1024}
+    assert CrockfordBase32.decode_to_integer("00011", checksum: true) == {:ok, 1}
+    assert CrockfordBase32.decode_to_integer("0", checksum: true) == {:ok, 0}
+    assert CrockfordBase32.decode_to_integer("I1", checksum: true) == {:ok, 1}
+    assert CrockfordBase32.decode_to_integer("0O", checksum: true) == {:ok, 0}
+
+    leading_zeroes = String.duplicate("0", 1024) <> "1"
+    assert CrockfordBase32.decode_to_integer(leading_zeroes) == {:ok, 1}
+    assert CrockfordBase32.decode_to_integer("u") == {:ok, 36}
+    assert CrockfordBase32.decode_to_integer("?") == :error
+  end
+
   test "decode integer with checksum" do
     items = [1_234_567, 0, 8_612_493_570, 5111]
     assert_encode_and_decode_integer(items, checksum: true)

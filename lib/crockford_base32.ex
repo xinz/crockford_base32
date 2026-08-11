@@ -5,7 +5,11 @@ defmodule CrockfordBase32 do
 
   use CrockfordBase32.Symbol
 
-  import Bitwise, only: [bor: 2, bsl: 2]
+  import Bitwise, only: [band: 2, bsl: 2, bsr: 2]
+
+  @integer_chunk_bits 25
+  @integer_binary_threshold 33_554_432
+  @checksum_chunk_bits 20
 
   defmacro __using__(opts \\ []) do
     alias CrockfordBase32.FixedEncoding
@@ -26,7 +30,7 @@ defmodule CrockfordBase32 do
   Encode an integer or a bitstring in Crockford's Base32.
 
   After encoded, the return string only contains these characters set(`"0123456789ABCDEFGHJKMNPQRSTVWXYZ"`, 10 digits and
-  22 letters, excluding `"I"`, `"L"`, `"O"` and `"U"`), if set `checksum: true`, there would be with one of these check 
+  22 letters, excluding `"I"`, `"L"`, `"O"` and `"U"`), if set `checksum: true`, there would be with one of these check
   symbols(`"*~$=U"`) or the previous 10 digits and 22 letters as the last character.
 
   ## Example
@@ -60,8 +64,7 @@ defmodule CrockfordBase32 do
 
   def encode(value, opts) when is_bitstring(value) do
     value
-    |> may_checksum(Keyword.get(opts, :checksum, false))
-    |> bytes_to_encode()
+    |> bytes_to_encode(Keyword.get(opts, :checksum, false))
     |> may_split_by_split_size_with_hyphen(Keyword.get(opts, :split_size))
   end
 
@@ -137,10 +140,18 @@ defmodule CrockfordBase32 do
   end
 
   defp may_split_with_checksum(input, false), do: {input, nil}
+  defp may_split_with_checksum(<<>>, true), do: {<<>>, <<>>}
 
   defp may_split_with_checksum(input, true) when is_binary(input) do
-    String.split_at(input, -1)
+    if Regex.match?(~r/\A[0-9A-Za-z*~$=]*\z/, input) do
+      payload_size = byte_size(input) - 1
+      <<payload::binary-size(payload_size), checksum::binary-size(1)>> = input
+      {payload, checksum}
+    else
+      String.split_at(input, -1)
+    end
   end
+
   defp may_split_with_checksum(input, true), do: {input, nil}
 
   defp remove_hyphen(input) when is_binary(input) do
@@ -149,12 +160,12 @@ defmodule CrockfordBase32 do
   defp remove_hyphen(input), do: input
 
   defp decoding_integer({str, nil}) do
-    {:ok, decoding_integer(str, 0)}
+    {:ok, decode_integer_value(str)}
   end
 
   defp decoding_integer({str, <<checksum::integer-size(8)>>}) do
     check_value = d(checksum)
-    integer = decoding_integer(str, 0)
+    integer = decode_integer_value(str)
 
     if check_value != rem(integer, 37) do
       invalid_checksum()
@@ -165,16 +176,95 @@ defmodule CrockfordBase32 do
 
   defp decoding_integer(_), do: error_invalid()
 
-  defp decoding_integer(<<>>, acc), do: acc
+  defp decode_integer_value(<<>>), do: 0
 
-  defp decoding_integer(<<byte::integer-size(8), rest::binary>>, acc) do
-    acc = acc * 32 + d(byte)
-    decoding_integer(rest, acc)
+  defp decode_integer_value(str) do
+    case trim_leading_zero_integer_symbols(str) do
+      {:ok, <<>>} ->
+        0
+
+      {:ok, payload} ->
+        case decode_canonical_integer(payload) do
+          {:ok, integer} -> integer
+          nil -> decode_integer_chunks(str, 0)
+        end
+
+      nil ->
+        decode_integer_chunks(str, 0)
+    end
+  end
+
+  defp trim_leading_zero_integer_symbols(<<>>), do: {:ok, <<>>}
+
+  defp trim_leading_zero_integer_symbols(
+         <<byte::integer-size(8), rest::binary>> = input
+       ) do
+    case d(byte) do
+      0 -> trim_leading_zero_integer_symbols(rest)
+      digit when digit <= 31 -> {:ok, input}
+      _ -> nil
+    end
+  end
+
+  defp decode_canonical_integer(payload) do
+    padding_size = rem(8 - rem(byte_size(payload) * 5, 8), 8)
+
+    case pack_canonical_integer(payload, padding_size, 0, []) do
+      {:ok, binary} -> {:ok, :binary.decode_unsigned(binary)}
+      nil -> nil
+    end
+  end
+
+  defp pack_canonical_integer(<<>>, 0, 0, reversed_bytes) do
+    {:ok, :erlang.list_to_binary(Enum.reverse(reversed_bytes))}
+  end
+
+  defp pack_canonical_integer(
+         <<byte::integer-size(8), rest::binary>>,
+         bit_count,
+         carry,
+         reversed_bytes
+       ) do
+    digit = d(byte)
+
+    if digit > 31 do
+      nil
+    else
+      bit_count = bit_count + 5
+      carry = bsl(carry, 5) + digit
+
+      if bit_count >= 8 do
+        remaining_bit_count = bit_count - 8
+        output_byte = bsr(carry, remaining_bit_count)
+        carry = band(carry, bsl(1, remaining_bit_count) - 1)
+
+        pack_canonical_integer(rest, remaining_bit_count, carry, [output_byte | reversed_bytes])
+      else
+        pack_canonical_integer(rest, bit_count, carry, reversed_bytes)
+      end
+    end
+  end
+
+  defp decode_integer_chunks(<<>>, acc), do: acc
+
+  defp decode_integer_chunks(
+         <<i1::integer-size(8), i2::integer-size(8), i3::integer-size(8),
+           i4::integer-size(8), i5::integer-size(8), rest::binary>>,
+         acc
+       ) do
+    chunk =
+      bsl(d(i1), 20) + bsl(d(i2), 15) + bsl(d(i3), 10) + bsl(d(i4), 5) +
+        d(i5)
+
+    decode_integer_chunks(rest, bsl(acc, @integer_chunk_bits) + chunk)
+  end
+
+  defp decode_integer_chunks(<<byte::integer-size(8), rest::binary>>, acc) do
+    decode_integer_chunks(rest, bsl(acc, 5) + d(byte))
   end
 
   defp checksum_valid?(bitstring, input_checksum) do
-    calculated_checksum = bitstring |> bytes_to_integer_nopadding(0) |> calculate_checksum()
-    calculated_checksum == input_checksum
+    checksum_for_bitstring(bitstring) == input_checksum
   end
 
   defp verify_checksum(decoded, full_decoded, checksum) do
@@ -213,100 +303,97 @@ defmodule CrockfordBase32 do
 
   defp integer_to_encode(0, []), do: "0"
   defp integer_to_encode(0, ["0"]), do: "00"
-  defp integer_to_encode(0, encoded), do: to_string(encoded)
+  defp integer_to_encode(0, encoded), do: IO.iodata_to_binary(encoded)
 
-  defp integer_to_encode(value, encoded) when value > 0 do
-    remainder = rem(value, 32)
-    value = div(value, 32)
-    integer_to_encode(value, [e(remainder) | encoded])
+  defp integer_to_encode(value, encoded)
+       when value > 0 and value < @integer_binary_threshold do
+    integer_to_encode(bsr(value, 5), [e(band(value, 31)) | encoded])
   end
 
-  defp encode_bytes_maybe_padding(value, expected_size, checksum) do
-    do_encode_bytes_maybe_padding(value, expected_size, checksum)
+  defp integer_to_encode(value, checksum) when value > 0 do
+    encoded =
+      value
+      |> :binary.encode_unsigned()
+      |> drop_integer_leading_zero_bits()
+      |> left_pad_to_base32_boundary()
+      |> encode_bitstring([])
+      |> Enum.reverse()
+
+    IO.iodata_to_binary([encoded, checksum])
   end
 
-  defp do_encode_bytes_maybe_padding(0, expected_size, []),
-    do: String.duplicate("0", expected_size)
-
-  defp do_encode_bytes_maybe_padding(0, 0, acc), do: to_string(acc)
-
-  defp do_encode_bytes_maybe_padding(0, size, acc) when size > 0 do
-    encode_bytes_maybe_padding(0, size - 1, [e(0) | acc])
+  defp drop_integer_leading_zero_bits(<<0::size(1), rest::bitstring>>) do
+    drop_integer_leading_zero_bits(rest)
   end
 
-  defp do_encode_bytes_maybe_padding(value, size, acc) do
-    remainder = rem(value, 32)
-    value = div(value, 32)
-    encode_bytes_maybe_padding(value, size - 1, [e(remainder) | acc])
+  defp drop_integer_leading_zero_bits(bitstring), do: bitstring
+
+  # Numeric Base32 aligns the most significant group, unlike bitstring tail padding.
+  defp left_pad_to_base32_boundary(bitstring) do
+    padding_size = rem(5 - rem(bit_size(bitstring), 5), 5)
+    <<0::size(padding_size), bitstring::bitstring>>
   end
 
-  defp bytes_to_integer_nopadding(<<>>, n), do: n
+  defp bytes_to_encode(bytes, with_checksum) do
+    encoded =
+      bytes
+      |> encode_bitstring([])
+      |> Enum.reverse()
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(1)>>, n) do
-    bsl(n, 1) |> bor(bytes)
+    checksum =
+      if with_checksum == true do
+        [<<checksum_for_bitstring(bytes)::integer>>]
+      else
+        []
+      end
+
+    IO.iodata_to_binary([encoded, checksum])
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(2)>>, n) do
-    bsl(n, 2) |> bor(bytes)
+  defp encode_bitstring(<<>>, encoded), do: encoded
+
+  defp encode_bitstring(<<value::integer-size(5), rest::bitstring>>, encoded) do
+    encode_bitstring(rest, [e(value) | encoded])
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(3)>>, n) do
-    bsl(n, 3) |> bor(bytes)
+  defp encode_bitstring(<<value::integer-size(4)>>, encoded), do: [e(bsl(value, 1)) | encoded]
+  defp encode_bitstring(<<value::integer-size(3)>>, encoded), do: [e(bsl(value, 2)) | encoded]
+  defp encode_bitstring(<<value::integer-size(2)>>, encoded), do: [e(bsl(value, 3)) | encoded]
+  defp encode_bitstring(<<value::integer-size(1)>>, encoded), do: [e(bsl(value, 4)) | encoded]
+
+  defp checksum_for_bitstring(bitstring) do
+    bitstring
+    |> bitstring_remainder(0)
+    |> e()
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(4)>>, n) do
-    bsl(n, 4) |> bor(bytes)
+  defp bitstring_remainder(<<>>, remainder), do: remainder
+
+  defp bitstring_remainder(
+         <<value::integer-size(@checksum_chunk_bits), rest::bitstring>>,
+         remainder
+       ) do
+    bitstring_remainder(rest, rem(bsl(remainder, @checksum_chunk_bits) + value, 37))
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(5), rest::bitstring>>, n) do
-    bytes_to_integer_nopadding(rest, bsl(n, 5) |> bor(bytes))
+  defp bitstring_remainder(<<value::integer-size(5), rest::bitstring>>, remainder) do
+    bitstring_remainder(rest, rem(bsl(remainder, 5) + value, 37))
   end
 
-  defp bytes_to_integer_with_padding(<<>>, n), do: n
+  defp bitstring_remainder(<<value::integer-size(4)>>, remainder),
+    do: rem(bsl(remainder, 4) + value, 37)
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(1)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 4))
-  end
+  defp bitstring_remainder(<<value::integer-size(3)>>, remainder),
+    do: rem(bsl(remainder, 3) + value, 37)
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(2)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 3))
-  end
+  defp bitstring_remainder(<<value::integer-size(2)>>, remainder),
+    do: rem(bsl(remainder, 2) + value, 37)
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(3)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 2))
-  end
-
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(4)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 1))
-  end
-
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(5), rest::bitstring>>, n) do
-    bytes_to_integer_with_padding(rest, bsl(n, 5) |> bor(bytes))
-  end
-
-  defp bytes_to_encode({bytes, checksum}) do
-    bytes
-    |> bytes_to_integer_with_padding(0)
-    |> encode_bytes_maybe_padding(encoded_length_of_bytes(bytes), checksum)
-  end
-
-  defp encoded_length_of_bytes(bytes) do
-    bit_size = bit_size(bytes)
-    base = div(bit_size, 5)
-
-    case rem(bit_size, 5) do
-      0 -> base
-      _ -> base + 1
-    end
-  end
+  defp bitstring_remainder(<<value::integer-size(1)>>, remainder),
+    do: rem(bsl(remainder, 1) + value, 37)
 
   defp may_checksum(input, true) when is_integer(input) do
     {input, [<<calculate_checksum(input)::integer>>]}
-  end
-
-  defp may_checksum(input, true) when is_bitstring(input) do
-    int = bytes_to_integer_nopadding(input, 0)
-    {input, [<<calculate_checksum(int)::integer>>]}
   end
 
   defp may_checksum(input, _) do

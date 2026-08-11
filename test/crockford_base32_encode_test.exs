@@ -9,6 +9,18 @@ defmodule CrockfordBase32EncodeTest do
     assert CrockfordBase32.encode(Integer.pow(10, 9)) == "XSNJG0"
   end
 
+  test "encode integers across five-symbol chunk boundaries" do
+    chunk_base = Integer.pow(2, 25)
+
+    assert CrockfordBase32.encode(chunk_base - 1) == "ZZZZZ"
+    assert CrockfordBase32.encode(chunk_base) == "100000"
+    assert CrockfordBase32.encode(chunk_base + 1) == "100001"
+    assert CrockfordBase32.encode(Integer.pow(2, 30) - 1) == "ZZZZZZ"
+    assert CrockfordBase32.encode(Integer.pow(2, 31)) == "2000000"
+    assert CrockfordBase32.encode(Integer.pow(2, 34)) == "G000000"
+    assert CrockfordBase32.encode(Integer.pow(2, 50)) == "10000000000"
+  end
+
   test "encode integer with checksum" do
     assert CrockfordBase32.encode(0, checksum: true) == "00"
     assert CrockfordBase32.encode(1234, checksum: true) == "16JD"
@@ -61,6 +73,25 @@ defmodule CrockfordBase32EncodeTest do
     assert CrockfordBase32.encode("测试", checksum: true) == "WTTRQT5FJMM"
   end
 
+  test "calculate bitstring checksums across 20-bit boundaries" do
+    Enum.each([19, 20, 21, 39, 40, 41], fn size ->
+      Enum.each([Integer.pow(2, size - 1), Integer.pow(2, size - 1) + 1], fn value ->
+        input = <<value::size(size)>>
+        checksum = expected_bitstring_checksum(input)
+        encoded = CrockfordBase32.encode(input, checksum: true)
+
+        assert encoded == CrockfordBase32.encode(input) <> <<checksum>>
+      end)
+    end)
+  end
+
+  test "decode byte-aligned checksums across 20-bit boundaries" do
+    Enum.each([<<1, 2, 3>>, <<1, 2, 3, 4, 5>>, <<1, 2, 3, 4, 5, 6, 7>>], fn input ->
+      encoded = CrockfordBase32.encode(input, checksum: true)
+      assert {:ok, ^input} = CrockfordBase32.decode_to_bitstring(encoded, checksum: true)
+    end)
+  end
+
   test "encode string with split_size" do
     assert CrockfordBase32.encode("0", split_size: 1) == "6-0"
     assert CrockfordBase32.encode("0", split_size: 1, checksum: true) == "6-0-B"
@@ -69,6 +100,46 @@ defmodule CrockfordBase32EncodeTest do
     assert CrockfordBase32.encode("abc", split_size: 3, checksum: true) == "C5H-66C"
     assert CrockfordBase32.encode("abc", split_size: 6, checksum: true) == "C5H66C"
     assert CrockfordBase32.encode("abc", split_size: 7, checksum: true) == "C5H66C"
+  end
+
+  test "encode non-byte-aligned bitstrings" do
+    cases = [
+      {<<>>, "", "0"},
+      {<<1::size(1)>>, "G", "G1"},
+      {<<1::size(2)>>, "8", "81"},
+      {<<1::size(3)>>, "4", "41"},
+      {<<1::size(4)>>, "2", "21"},
+      {<<1::size(5)>>, "1", "11"},
+      {<<1::size(6)>>, "0G", "0G1"},
+      {<<1::size(7)>>, "08", "081"}
+    ]
+
+    Enum.each(cases, fn {input, encoded, encoded_with_checksum} ->
+      assert CrockfordBase32.encode(input) == encoded
+      assert CrockfordBase32.encode(input, checksum: true) == encoded_with_checksum
+    end)
+  end
+
+  test "encode and decode a large bitstring with checksum" do
+    payload = IO.iodata_to_binary(:lists.duplicate(512, <<0, 1, 2, 3, 4, 5, 6, 7>>))
+    checksum = rem(:binary.decode_unsigned(payload), 37)
+    expected_checksum = Enum.at(~c"0123456789ABCDEFGHJKMNPQRSTVWXYZ*~$=U", checksum)
+
+    encoded = CrockfordBase32.encode(payload, checksum: true)
+
+    assert encoded == CrockfordBase32.encode(payload) <> <<expected_checksum>>
+    assert {:ok, ^payload} = CrockfordBase32.decode_to_bitstring(encoded, checksum: true)
+  end
+
+  defp expected_bitstring_checksum(bitstring) do
+    checksum = expected_bitstring_checksum(bitstring, 0)
+    Enum.at(~c"0123456789ABCDEFGHJKMNPQRSTVWXYZ*~$=U", checksum)
+  end
+
+  defp expected_bitstring_checksum(<<>>, checksum), do: checksum
+
+  defp expected_bitstring_checksum(<<bit::size(1), rest::bitstring>>, checksum) do
+    expected_bitstring_checksum(rest, rem(checksum * 2 + bit, 37))
   end
 
   test "encode binary with zero pad leading" do
