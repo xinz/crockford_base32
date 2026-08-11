@@ -502,22 +502,23 @@ defmodule CrockfordBase32 do
   end
   defp trim_trailing_padding_bits(bitstring, _size), do: bitstring
 
+  defp decode_bitstring_symbols(<<>>, acc)
+       when rem(bit_size(acc), 8) == 0 do
+    {:ok, acc, acc}
+  end
+
   defp decode_bitstring_symbols(<<>>, acc) do
     decoded_size = bit_size(acc)
-    case rem(decoded_size, 8) do
-      0 ->
-        {:ok, acc, acc}
-      padding_size ->
-        data_size = decoded_size - padding_size
-        case acc do
-          <<decoded::bitstring-size(data_size), 0::size(padding_size)>> ->
-            {:ok, decoded, acc}
-          <<decoded::bitstring-size(data_size), rest::size(padding_size)>> ->
-            trimmed = trim_trailing_padding_bits(<<rest::size(padding_size)>>, padding_size)
-            {:ok, <<decoded::bitstring, trimmed::bitstring>>, acc}
-          _ ->
-            error_invalid()
-        end
+    padding_size = rem(decoded_size, 8)
+    data_size = decoded_size - padding_size
+    case acc do
+      <<decoded::bitstring-size(data_size), 0::size(padding_size)>> ->
+        {:ok, decoded, acc}
+      <<decoded::bitstring-size(data_size), rest::size(padding_size)>> ->
+        trimmed = trim_trailing_padding_bits(<<rest::size(padding_size)>>, padding_size)
+        {:ok, <<decoded::bitstring, trimmed::bitstring>>, acc}
+      _ ->
+        error_invalid()
     end
   end
 
