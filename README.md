@@ -12,7 +12,7 @@ See [Crockford's Base32 specification](https://www.crockford.com/base32.html) fo
 ```elixir
 def deps do
   [
-    {:crockford_base32, "~> 0.8"}
+    {:crockford_base32, "~> 0.9"}
   ]
 end
 ```
