@@ -1,12 +1,24 @@
 defmodule CrockfordBase32 do
   @moduledoc """
-  The main module implements Douglas Crockford's [Base32](https://www.crockford.com/base32.html) encoding.
+  Encodes and decodes non-negative integers and bitstrings with
+  [Crockford's Base32](https://www.crockford.com/base32.html).
   """
 
   use CrockfordBase32.Symbol
 
-  import Bitwise, only: [bor: 2, bsl: 2]
+  import Bitwise, only: [band: 2, bsl: 2, bsr: 2]
 
+  @integer_chunk_bits 25
+  # Avoid binary staging for common identifiers while limiting direct shifts to 10 Base32 digits.
+  @integer_binary_threshold Integer.pow(2, 50)
+  @checksum_chunk_bits 20
+
+  @doc """
+  Generates fixed-width `encode/1` and `decode/1` functions in the calling module.
+
+  `:bits_size` sets the exact bit length. `:type` is `:bitstring` (default) or
+  `:integer`; `:alphabet` accepts an optional custom charlist.
+  """
   defmacro __using__(opts \\ []) do
     alias CrockfordBase32.FixedEncoding
     opts = Macro.prewalk(opts, &Macro.expand(&1, __CALLER__))
@@ -23,68 +35,77 @@ defmodule CrockfordBase32 do
   end
 
   @doc """
-  Encode an integer or a bitstring in Crockford's Base32.
+  Encodes a non-negative integer or bitstring.
 
-  After encoded, the return string only contains these characters set(`"0123456789ABCDEFGHJKMNPQRSTVWXYZ"`, 10 digits and
-  22 letters, excluding `"I"`, `"L"`, `"O"` and `"U"`), if set `checksum: true`, there would be with one of these check 
-  symbols(`"*~$=U"`) or the previous 10 digits and 22 letters as the last character.
+  Bitstrings may have any bit length. Output uses the default Crockford alphabet,
+  `"0123456789ABCDEFGHJKMNPQRSTVWXYZ"`.
 
-  ## Example
+  ## Checksums
 
-      iex> CrockfordBase32.encode(1234567)
-      "15NM7"
-      iex> CrockfordBase32.encode(1234567, checksum: true)
-      "15NM7S"
-      iex> CrockfordBase32.encode(1234567, split_size: 3)
-      "15N-M7"
-      iex> CrockfordBase32.encode(1234567, split_size: 3, checksum: true)
-      "15N-M7S"
+  Setting `checksum: true` appends one Crockford check symbol after the payload.
+  The symbol is calculated modulo 37; for bitstrings, the calculation uses the
+  original, unpadded bits. It helps detect accidental transcription errors, but
+  is not a cryptographic integrity or authentication mechanism.
+
+  Check symbols extend the output alphabet with `"*~$=U"`. `split_size` is
+  applied after the check symbol is appended, so it is grouped with the rest of
+  the output.
 
   ## Options
 
-    * `:checksum`, optional, a boolean, by defaults to `false`, if set it as `true` will calculate a check
-      symbol and append it to the return string.
-    * `:split_size`, optional, a positive integer, if set it will use it as a step size to split
-      the return string with hyphen(s).
+    * `:checksum` - set to `true` to append a check symbol.
+    * `:split_size` - a positive group size; groups are separated by hyphens.
 
+  ## Examples
+
+      iex> CrockfordBase32.encode(1234)
+      "16J"
+      iex> CrockfordBase32.encode(1234, checksum: true)
+      "16JD"
+      iex> CrockfordBase32.encode("abc", checksum: true, split_size: 3)
+      "C5H-66C"
   """
-  @spec encode(integer() | bitstring(), Keyword.t()) :: String.t()
+  @spec encode(non_neg_integer() | bitstring(), Keyword.t()) :: String.t()
   def encode(value, opts \\ [])
 
   def encode(value, opts) when is_integer(value) do
     value
-    |> may_checksum(Keyword.get(opts, :checksum, false))
-    |> integer_to_encode()
-    |> may_split_by_split_size_with_hyphen(Keyword.get(opts, :split_size))
+    |> prepare_integer_encoding(Keyword.get(opts, :checksum, false))
+    |> encode_integer()
+    |> insert_hyphens(Keyword.get(opts, :split_size))
   end
 
   def encode(value, opts) when is_bitstring(value) do
     value
-    |> may_checksum(Keyword.get(opts, :checksum, false))
-    |> bytes_to_encode()
-    |> may_split_by_split_size_with_hyphen(Keyword.get(opts, :split_size))
+    |> encode_bitstring(Keyword.get(opts, :checksum, false))
+    |> insert_hyphens(Keyword.get(opts, :split_size))
   end
 
   @doc """
-  Decode the encoded string to an integer, all hyphen(s) are removed and ignore the encoded's case.
+  Decodes a Crockford Base32 string to a non-negative integer.
 
-  If the encoded string be with a check symbol, require to use `checksum: true` in decoding.
+  Decoding ignores hyphens and is case-insensitive. `I` and `L` are aliases for
+  `1`, and `O` is an alias for `0`.
 
-  ## Example
+  ## Checksums
 
-      iex> CrockfordBase32.decode_to_integer("16JD", checksum: true)
+  With `checksum: true`, the final non-hyphen symbol is treated as a check
+  symbol and excluded from the payload. A mismatched valid check symbol returns
+  `:error_checksum`; malformed input returns `:error`.
+
+  Use this option only for values encoded with `checksum: true`; otherwise the
+  final payload symbol is interpreted as a check symbol.
+
+  ## Examples
+
+      iex> CrockfordBase32.decode_to_integer("16-j")
       {:ok, 1234}
-      iex> CrockfordBase32.decode_to_integer("16j")
+      iex> CrockfordBase32.decode_to_integer("16-JD", checksum: true)
       {:ok, 1234}
-      iex> CrockfordBase32.decode_to_integer("16j*", checksum: true)
+      iex> CrockfordBase32.decode_to_integer("16J1", checksum: true)
       :error_checksum
-
-  ## Options
-
-    * `:checksum`, optional, a boolean, by defaults to `false` means expect input the encoded string without a check symbol in its tail,
-      if set it as `true`, please ensure input encoded is a string be with a check symbol, or return  `:error_checksum`.
   """
-  @spec decode_to_integer(String.t(), Keyword.t()) :: {:ok, integer} | :error | :error_checksum
+  @spec decode_to_integer(String.t(), Keyword.t()) :: {:ok, non_neg_integer()} | :error | :error_checksum
   def decode_to_integer(string, opts \\ [])
 
   def decode_to_integer(<<>>, _opts) do
@@ -93,31 +114,38 @@ defmodule CrockfordBase32 do
 
   def decode_to_integer(string, opts) when is_binary(string) do
     string
-    |> remove_hyphen()
-    |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
-    |> decoding_integer()
+    |> remove_hyphens()
+    |> split_payload_and_checksum(Keyword.get(opts, :checksum, false))
+    |> decode_integer()
   catch
     _error ->
       error_invalid()
   end
 
   @doc """
-  Decode the encoded to a bitstring, all hyphen(s) are removed and ignore the encoded's case.
+  Decodes a Crockford Base32 string to a bitstring.
 
-  If the encoded bitstring be with a check symbol, require to use `checksum: true` in decoding.
+  Decoding ignores hyphens and is case-insensitive. Because final zero padding
+  is ambiguous, use a fixed-width encoder when the original bit length must be
+  preserved.
 
-  ## Example
+  ## Checksums
+
+  With `checksum: true`, the final non-hyphen symbol is treated as a check
+  symbol and excluded from the payload. A mismatched valid check symbol returns
+  `:error_checksum`; malformed input returns `:error`.
+
+  Use this option only for values encoded with `checksum: true`; otherwise the
+  final payload symbol is interpreted as a check symbol.
+
+  ## Examples
 
       iex> CrockfordBase32.decode_to_bitstring("C5H66")
       {:ok, "abc"}
-      iex> CrockfordBase32.decode_to_bitstring("C5H66C", checksum: true)
+      iex> CrockfordBase32.decode_to_bitstring("C5H-66C", checksum: true)
       {:ok, "abc"}
       iex> CrockfordBase32.decode_to_bitstring("C5H66D", checksum: true)
       :error_checksum
-
-  ## Options
-
-  The same to the options of `decode_to_integer/2`.
   """
   @spec decode_to_bitstring(bitstring(), Keyword.t()) :: {:ok, bitstring()} | :error | :error_checksum
   def decode_to_bitstring(input, opts \\ [])
@@ -128,33 +156,41 @@ defmodule CrockfordBase32 do
 
   def decode_to_bitstring(input, opts) when is_bitstring(input) do
     input
-    |> remove_hyphen()
-    |> may_split_with_checksum(Keyword.get(opts, :checksum, false))
-    |> decoding_bitstring()
+    |> remove_hyphens()
+    |> split_payload_and_checksum(Keyword.get(opts, :checksum, false))
+    |> decode_bitstring()
   catch
     _error ->
       error_invalid()
   end
 
-  defp may_split_with_checksum(input, false), do: {input, nil}
+  defp split_payload_and_checksum(input, false), do: {input, nil}
+  defp split_payload_and_checksum(<<>>, true), do: {<<>>, <<>>}
 
-  defp may_split_with_checksum(input, true) when is_binary(input) do
-    String.split_at(input, -1)
+  defp split_payload_and_checksum(input, true) when is_binary(input) do
+    if Regex.match?(~r/\A[0-9A-Za-z*~$=]*\z/, input) do
+      payload_size = byte_size(input) - 1
+      <<payload::binary-size(payload_size), checksum::binary-size(1)>> = input
+      {payload, checksum}
+    else
+      String.split_at(input, -1)
+    end
   end
-  defp may_split_with_checksum(input, true), do: {input, nil}
 
-  defp remove_hyphen(input) when is_binary(input) do
+  defp split_payload_and_checksum(input, true), do: {input, nil}
+
+  defp remove_hyphens(input) when is_binary(input) do
     String.replace(input, "-", "")
   end
-  defp remove_hyphen(input), do: input
+  defp remove_hyphens(input), do: input
 
-  defp decoding_integer({str, nil}) do
-    {:ok, decoding_integer(str, 0)}
+  defp decode_integer({str, nil}) do
+    {:ok, decode_integer_symbols(str)}
   end
 
-  defp decoding_integer({str, <<checksum::integer-size(8)>>}) do
+  defp decode_integer({str, <<checksum::integer-size(8)>>}) do
     check_value = d(checksum)
-    integer = decoding_integer(str, 0)
+    integer = decode_integer_symbols(str)
 
     if check_value != rem(integer, 37) do
       invalid_checksum()
@@ -163,18 +199,97 @@ defmodule CrockfordBase32 do
     end
   end
 
-  defp decoding_integer(_), do: error_invalid()
+  defp decode_integer(_), do: error_invalid()
 
-  defp decoding_integer(<<>>, acc), do: acc
+  defp decode_integer_symbols(<<>>), do: 0
 
-  defp decoding_integer(<<byte::integer-size(8), rest::binary>>, acc) do
-    acc = acc * 32 + d(byte)
-    decoding_integer(rest, acc)
+  defp decode_integer_symbols(symbols) do
+    case trim_leading_zero_integer_symbols(symbols) do
+      {:ok, <<>>} ->
+        0
+
+      {:ok, payload} ->
+        case decode_canonical_integer(payload) do
+          {:ok, integer} -> integer
+          nil -> decode_integer_chunks(symbols, 0)
+        end
+
+      nil ->
+        decode_integer_chunks(symbols, 0)
+    end
+  end
+
+  defp trim_leading_zero_integer_symbols(<<>>), do: {:ok, <<>>}
+
+  defp trim_leading_zero_integer_symbols(
+         <<byte::integer-size(8), rest::binary>> = input
+       ) do
+    case d(byte) do
+      0 -> trim_leading_zero_integer_symbols(rest)
+      digit when digit <= 31 -> {:ok, input}
+      _ -> nil
+    end
+  end
+
+  defp decode_canonical_integer(payload) do
+    padding_size = rem(8 - rem(byte_size(payload) * 5, 8), 8)
+
+    case pack_canonical_integer(payload, padding_size, 0, []) do
+      {:ok, binary} -> {:ok, :binary.decode_unsigned(binary)}
+      nil -> nil
+    end
+  end
+
+  defp pack_canonical_integer(<<>>, 0, 0, reversed_bytes) do
+    {:ok, :erlang.list_to_binary(Enum.reverse(reversed_bytes))}
+  end
+
+  defp pack_canonical_integer(
+         <<byte::integer-size(8), rest::binary>>,
+         bit_count,
+         carry,
+         reversed_bytes
+       ) do
+    digit = d(byte)
+
+    if digit > 31 do
+      nil
+    else
+      bit_count = bit_count + 5
+      carry = bsl(carry, 5) + digit
+
+      if bit_count >= 8 do
+        remaining_bit_count = bit_count - 8
+        output_byte = bsr(carry, remaining_bit_count)
+        carry = band(carry, bsl(1, remaining_bit_count) - 1)
+
+        pack_canonical_integer(rest, remaining_bit_count, carry, [output_byte | reversed_bytes])
+      else
+        pack_canonical_integer(rest, bit_count, carry, reversed_bytes)
+      end
+    end
+  end
+
+  defp decode_integer_chunks(<<>>, acc), do: acc
+
+  defp decode_integer_chunks(
+         <<i1::integer-size(8), i2::integer-size(8), i3::integer-size(8),
+           i4::integer-size(8), i5::integer-size(8), rest::binary>>,
+         acc
+       ) do
+    chunk =
+      bsl(d(i1), 20) + bsl(d(i2), 15) + bsl(d(i3), 10) + bsl(d(i4), 5) +
+        d(i5)
+
+    decode_integer_chunks(rest, bsl(acc, @integer_chunk_bits) + chunk)
+  end
+
+  defp decode_integer_chunks(<<byte::integer-size(8), rest::binary>>, acc) do
+    decode_integer_chunks(rest, bsl(acc, 5) + d(byte))
   end
 
   defp checksum_valid?(bitstring, input_checksum) do
-    calculated_checksum = bitstring |> bytes_to_integer_nopadding(0) |> calculate_checksum()
-    calculated_checksum == input_checksum
+    bitstring_checksum_symbol(bitstring) == input_checksum
   end
 
   defp verify_checksum(decoded, full_decoded, checksum) do
@@ -186,8 +301,8 @@ defmodule CrockfordBase32 do
     end
   end
 
-  defp decoding_bitstring({bitstring, nil}) do
-    case do_decode_bitstring(bitstring, <<>>) do
+  defp decode_bitstring({bitstring, nil}) do
+    case decode_bitstring_symbols(bitstring, <<>>) do
       {:ok, decoded, _} ->
         {:ok, decoded}
       :error ->
@@ -195,8 +310,8 @@ defmodule CrockfordBase32 do
     end
   end
 
-  defp decoding_bitstring({bitstring, <<checksum::integer-size(8)>>}) do
-    with {:ok, decoded, full_decoded} <- do_decode_bitstring(bitstring, <<>>),
+  defp decode_bitstring({bitstring, <<checksum::integer-size(8)>>}) do
+    with {:ok, decoded, full_decoded} <- decode_bitstring_symbols(bitstring, <<>>),
          :ok <- verify_checksum(decoded, full_decoded, checksum) do
       {:ok, decoded}
     else
@@ -207,138 +322,174 @@ defmodule CrockfordBase32 do
 
   defp invalid_checksum(), do: :error_checksum
 
-  defp integer_to_encode({value, checksum}) do
-    integer_to_encode(value, checksum)
+  defp encode_integer({value, checksum}) do
+    encode_integer(value, checksum)
   end
 
-  defp integer_to_encode(0, []), do: "0"
-  defp integer_to_encode(0, ["0"]), do: "00"
-  defp integer_to_encode(0, encoded), do: to_string(encoded)
+  defp encode_integer(0, []), do: "0"
+  defp encode_integer(0, ["0"]), do: "00"
+  defp encode_integer(0, encoded), do: IO.iodata_to_binary(encoded)
 
-  defp integer_to_encode(value, encoded) when value > 0 do
-    remainder = rem(value, 32)
-    value = div(value, 32)
-    integer_to_encode(value, [e(remainder) | encoded])
+  defp encode_integer(value, encoded)
+       when value > 0 and value < @integer_binary_threshold do
+    encode_integer(bsr(value, 5), [e(band(value, 31)) | encoded])
   end
 
-  defp encode_bytes_maybe_padding(value, expected_size, checksum) do
-    do_encode_bytes_maybe_padding(value, expected_size, checksum)
+  defp encode_integer(value, checksum) when value > 0 do
+    encoded =
+      value
+      |> :binary.encode_unsigned()
+      |> drop_integer_leading_zero_bits()
+      |> left_pad_to_base32_boundary()
+      |> encode_integer_bitstring_symbols_reversed([])
+      |> Enum.reverse()
+
+    IO.iodata_to_binary([encoded, checksum])
   end
 
-  defp do_encode_bytes_maybe_padding(0, expected_size, []),
-    do: String.duplicate("0", expected_size)
-
-  defp do_encode_bytes_maybe_padding(0, 0, acc), do: to_string(acc)
-
-  defp do_encode_bytes_maybe_padding(0, size, acc) when size > 0 do
-    encode_bytes_maybe_padding(0, size - 1, [e(0) | acc])
+  defp drop_integer_leading_zero_bits(<<0::size(1), rest::bitstring>>) do
+    drop_integer_leading_zero_bits(rest)
   end
 
-  defp do_encode_bytes_maybe_padding(value, size, acc) do
-    remainder = rem(value, 32)
-    value = div(value, 32)
-    encode_bytes_maybe_padding(value, size - 1, [e(remainder) | acc])
+  defp drop_integer_leading_zero_bits(bitstring), do: bitstring
+
+  # Numeric Base32 aligns the most significant group, unlike bitstring tail padding.
+  defp left_pad_to_base32_boundary(bitstring) do
+    padding_size = rem(5 - rem(bit_size(bitstring), 5), 5)
+    <<0::size(padding_size), bitstring::bitstring>>
   end
 
-  defp bytes_to_integer_nopadding(<<>>, n), do: n
-
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(1)>>, n) do
-    bsl(n, 1) |> bor(bytes)
+  defp encode_bitstring(bitstring, true) do
+    checksum = <<bitstring_checksum_symbol(bitstring)::integer-size(8)>>
+    encode_bitstring_to_binary(bitstring, <<>>, checksum)
+  end
+  defp encode_bitstring(bitstring, _with_checksum) do
+    encode_bitstring_to_binary(bitstring, <<>>, <<>>)
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(2)>>, n) do
-    bsl(n, 2) |> bor(bytes)
+  defp encode_bitstring_to_binary(<<>>, acc, checksum), do: <<acc::binary, checksum::binary>>
+
+  # Append complete output blocks directly to avoid a per-symbol reversed charlist.
+  defp encode_bitstring_to_binary(
+         <<v1::integer-size(5), v2::integer-size(5), v3::integer-size(5),
+           v4::integer-size(5), v5::integer-size(5), v6::integer-size(5),
+           v7::integer-size(5), v8::integer-size(5), v9::integer-size(5),
+           v10::integer-size(5), v11::integer-size(5), v12::integer-size(5),
+           v13::integer-size(5), v14::integer-size(5), v15::integer-size(5),
+           v16::integer-size(5), rest::bitstring>>,
+         acc,
+         checksum
+       ) do
+    encode_bitstring_to_binary(
+      rest,
+      <<acc::binary, e(v1), e(v2), e(v3), e(v4), e(v5), e(v6), e(v7), e(v8),
+        e(v9), e(v10), e(v11), e(v12), e(v13), e(v14), e(v15), e(v16)>>,
+      checksum
+    )
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(3)>>, n) do
-    bsl(n, 3) |> bor(bytes)
+  defp encode_bitstring_to_binary(<<value::integer-size(5), rest::bitstring>>, acc, checksum) do
+    encode_bitstring_to_binary(rest, <<acc::binary, e(value)>>, checksum)
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(4)>>, n) do
-    bsl(n, 4) |> bor(bytes)
+  defp encode_bitstring_to_binary(<<value::integer-size(4)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 1)), checksum::binary>>
+
+  defp encode_bitstring_to_binary(<<value::integer-size(3)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 2)), checksum::binary>>
+
+  defp encode_bitstring_to_binary(<<value::integer-size(2)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 3)), checksum::binary>>
+
+  defp encode_bitstring_to_binary(<<value::integer-size(1)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 4)), checksum::binary>>
+
+  defp encode_integer_bitstring_symbols_reversed(<<>>, symbols), do: symbols
+
+  defp encode_integer_bitstring_symbols_reversed(
+         <<value::integer-size(5), rest::bitstring>>,
+         symbols
+       ) do
+    encode_integer_bitstring_symbols_reversed(rest, [e(value) | symbols])
   end
 
-  defp bytes_to_integer_nopadding(<<bytes::integer-size(5), rest::bitstring>>, n) do
-    bytes_to_integer_nopadding(rest, bsl(n, 5) |> bor(bytes))
+  defp encode_integer_bitstring_symbols_reversed(<<value::integer-size(4)>>, symbols),
+    do: [e(bsl(value, 1)) | symbols]
+
+  defp encode_integer_bitstring_symbols_reversed(<<value::integer-size(3)>>, symbols),
+    do: [e(bsl(value, 2)) | symbols]
+
+  defp encode_integer_bitstring_symbols_reversed(<<value::integer-size(2)>>, symbols),
+    do: [e(bsl(value, 3)) | symbols]
+
+  defp encode_integer_bitstring_symbols_reversed(<<value::integer-size(1)>>, symbols),
+    do: [e(bsl(value, 4)) | symbols]
+
+  defp bitstring_checksum_symbol(bitstring) do
+    bitstring
+    |> bitstring_checksum_remainder(0)
+    |> e()
   end
 
-  defp bytes_to_integer_with_padding(<<>>, n), do: n
+  defp bitstring_checksum_remainder(<<>>, remainder), do: remainder
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(1)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 4))
+  defp bitstring_checksum_remainder(
+         <<value::integer-size(@checksum_chunk_bits), rest::bitstring>>,
+         remainder
+       ) do
+    bitstring_checksum_remainder(rest, rem(bsl(remainder, @checksum_chunk_bits) + value, 37))
   end
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(2)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 3))
+  defp bitstring_checksum_remainder(<<value::integer-size(5), rest::bitstring>>, remainder) do
+    bitstring_checksum_remainder(rest, rem(bsl(remainder, 5) + value, 37))
   end
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(3)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 2))
+  defp bitstring_checksum_remainder(<<value::integer-size(4)>>, remainder),
+    do: rem(bsl(remainder, 4) + value, 37)
+
+  defp bitstring_checksum_remainder(<<value::integer-size(3)>>, remainder),
+    do: rem(bsl(remainder, 3) + value, 37)
+
+  defp bitstring_checksum_remainder(<<value::integer-size(2)>>, remainder),
+    do: rem(bsl(remainder, 2) + value, 37)
+
+  defp bitstring_checksum_remainder(<<value::integer-size(1)>>, remainder),
+    do: rem(bsl(remainder, 1) + value, 37)
+
+  defp prepare_integer_encoding(value, true) when is_integer(value) do
+    {value, [<<integer_checksum_symbol(value)::integer>>]}
   end
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(4)>>, n) do
-    bsl(n, 5) |> bor(bsl(bytes, 1))
+  defp prepare_integer_encoding(value, _) do
+    {value, []}
   end
 
-  defp bytes_to_integer_with_padding(<<bytes::integer-size(5), rest::bitstring>>, n) do
-    bytes_to_integer_with_padding(rest, bsl(n, 5) |> bor(bytes))
+  defp integer_checksum_symbol(value) do
+    value |> rem(37) |> e()
   end
 
-  defp bytes_to_encode({bytes, checksum}) do
-    bytes
-    |> bytes_to_integer_with_padding(0)
-    |> encode_bytes_maybe_padding(encoded_length_of_bytes(bytes), checksum)
-  end
-
-  defp encoded_length_of_bytes(bytes) do
-    bit_size = bit_size(bytes)
-    base = div(bit_size, 5)
-
-    case rem(bit_size, 5) do
-      0 -> base
-      _ -> base + 1
-    end
-  end
-
-  defp may_checksum(input, true) when is_integer(input) do
-    {input, [<<calculate_checksum(input)::integer>>]}
-  end
-
-  defp may_checksum(input, true) when is_bitstring(input) do
-    int = bytes_to_integer_nopadding(input, 0)
-    {input, [<<calculate_checksum(int)::integer>>]}
-  end
-
-  defp may_checksum(input, _) do
-    {input, []}
-  end
-
-  defp calculate_checksum(int) do
-    int |> rem(37) |> e()
-  end
-
-  defp may_split_by_split_size_with_hyphen(encoded, split_size)
+  defp insert_hyphens(encoded, split_size)
        when is_integer(split_size) and split_size > 0 do
-    split_with_hyphen(encoded, split_size, [])
+    insert_hyphens(encoded, split_size, [])
   end
 
-  defp may_split_by_split_size_with_hyphen(encoded, _), do: encoded
+  defp insert_hyphens(encoded, _), do: encoded
 
-  defp split_with_hyphen(str, size, prepared) when byte_size(str) > size do
+  defp insert_hyphens(str, size, chunks) when byte_size(str) > size do
     <<chunk::size(size)-binary, rest::binary>> = str
-    split_with_hyphen(rest, size, [chunk | prepared])
+    insert_hyphens(rest, size, [chunk | chunks])
   end
 
-  defp split_with_hyphen(str, _size, []), do: str
+  defp insert_hyphens(str, _size, []), do: str
 
-  defp split_with_hyphen(rest, _size, prepared) do
-    Enum.reverse([rest | prepared]) |> Enum.join("-")
+  defp insert_hyphens(rest, _size, chunks) do
+    Enum.reverse([rest | chunks]) |> Enum.join("-")
   end
 
   @doc false
   def error_invalid(), do: :error
 
-  defp calculate_padding_in_decoding(bitstring, size) when size > 5 do
+  defp trim_trailing_padding_bits(bitstring, size) when size > 5 do
     for(<<x::size(1) <- bitstring>>, do: x)
     |> Enum.reverse()
     |> Enum.drop_while(fn
@@ -349,10 +500,9 @@ defmodule CrockfordBase32 do
       <<i::size(1), acc::bitstring>>
     end)
   end
-  defp calculate_padding_in_decoding(bitstring, _size), do: bitstring
+  defp trim_trailing_padding_bits(bitstring, _size), do: bitstring
 
-  @compile {:inline, do_decode_bitstring: 2}
-  defp do_decode_bitstring(<<>>, acc) do
+  defp decode_bitstring_symbols(<<>>, acc) do
     decoded_size = bit_size(acc)
     case rem(decoded_size, 8) do
       0 ->
@@ -363,7 +513,7 @@ defmodule CrockfordBase32 do
           <<decoded::bitstring-size(data_size), 0::size(padding_size)>> ->
             {:ok, decoded, acc}
           <<decoded::bitstring-size(data_size), rest::size(padding_size)>> ->
-            trimmed = calculate_padding_in_decoding(<<rest::size(padding_size)>>, padding_size)
+            trimmed = trim_trailing_padding_bits(<<rest::size(padding_size)>>, padding_size)
             {:ok, <<decoded::bitstring, trimmed::bitstring>>, acc}
           _ ->
             error_invalid()
@@ -372,25 +522,24 @@ defmodule CrockfordBase32 do
   end
 
   # also generate the alphabet(A-Z) in lowercase when decode with accumulator
-  @compile {:inline, do_decode_bitstring: 2}
   for {alphabet, index} <- Enum.with_index(CrockfordBase32.Symbol.alphabet_set()) do
-    defp do_decode_bitstring(<<unquote(alphabet), rest::bitstring>>, acc) do
-      do_decode_bitstring(rest, <<acc::bitstring, unquote(index)::5>>)
+    defp decode_bitstring_symbols(<<unquote(alphabet), rest::bitstring>>, acc) do
+      decode_bitstring_symbols(rest, <<acc::bitstring, unquote(index)::5>>)
     end
     if alphabet in ?A..?Z do
-      defp do_decode_bitstring(<<unquote(alphabet+32), rest::bitstring>>, acc) do
-        do_decode_bitstring(rest, <<acc::bitstring, unquote(index)::5>>)
+      defp decode_bitstring_symbols(<<unquote(alphabet+32), rest::bitstring>>, acc) do
+        decode_bitstring_symbols(rest, <<acc::bitstring, unquote(index)::5>>)
       end
     end
   end
   # I L O
-  defp do_decode_bitstring(<<"I", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
-  defp do_decode_bitstring(<<"L", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
-  defp do_decode_bitstring(<<"O", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 0::5>>)
+  defp decode_bitstring_symbols(<<"I", rest::bitstring>>, acc), do: decode_bitstring_symbols(rest, <<acc::bitstring, 1::5>>)
+  defp decode_bitstring_symbols(<<"L", rest::bitstring>>, acc), do: decode_bitstring_symbols(rest, <<acc::bitstring, 1::5>>)
+  defp decode_bitstring_symbols(<<"O", rest::bitstring>>, acc), do: decode_bitstring_symbols(rest, <<acc::bitstring, 0::5>>)
   # i l o
-  defp do_decode_bitstring(<<"i", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
-  defp do_decode_bitstring(<<"l", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 1::5>>)
-  defp do_decode_bitstring(<<"o", rest::bitstring>>, acc), do: do_decode_bitstring(rest, <<acc::bitstring, 0::5>>)
-  defp do_decode_bitstring(_input, _acc), do: throw :error
+  defp decode_bitstring_symbols(<<"i", rest::bitstring>>, acc), do: decode_bitstring_symbols(rest, <<acc::bitstring, 1::5>>)
+  defp decode_bitstring_symbols(<<"l", rest::bitstring>>, acc), do: decode_bitstring_symbols(rest, <<acc::bitstring, 1::5>>)
+  defp decode_bitstring_symbols(<<"o", rest::bitstring>>, acc), do: decode_bitstring_symbols(rest, <<acc::bitstring, 0::5>>)
+  defp decode_bitstring_symbols(_input, _acc), do: throw :error
 
 end

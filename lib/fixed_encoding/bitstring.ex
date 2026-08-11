@@ -23,8 +23,10 @@ defmodule CrockfordBase32.FixedEncoding.Bitstring do
       def encode(_), do: error_invalid()
 
       def decode(unquote({:<<>>, [], pattern_match_of_decode_arg})) do
-        <<data::size(unquote(bits_size)), _::size(unquote(padding_size))>> = unquote({:<<>>, [], decode_body_expr})
-        {:ok, <<data::size(unquote(bits_size))>>}
+        <<data::bitstring-size(unquote(bits_size)), _::size(unquote(padding_size))>> =
+          unquote({:<<>>, [], decode_body_expr})
+
+        {:ok, data}
       catch
         _ ->
           error_invalid()
