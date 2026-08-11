@@ -8,7 +8,8 @@ defmodule CrockfordBase32 do
   import Bitwise, only: [band: 2, bsl: 2, bsr: 2]
 
   @integer_chunk_bits 25
-  @integer_binary_threshold 33_554_432
+  # Avoid binary staging for common identifiers while limiting direct shifts to 10 Base32 digits.
+  @integer_binary_threshold Integer.pow(2, 50)
   @checksum_chunk_bits 20
 
   defmacro __using__(opts \\ []) do
@@ -334,21 +335,50 @@ defmodule CrockfordBase32 do
     <<0::size(padding_size), bitstring::bitstring>>
   end
 
-  defp bytes_to_encode(bytes, with_checksum) do
-    encoded =
-      bytes
-      |> encode_bitstring([])
-      |> Enum.reverse()
-
-    checksum =
-      if with_checksum == true do
-        [<<checksum_for_bitstring(bytes)::integer>>]
-      else
-        []
-      end
-
-    IO.iodata_to_binary([encoded, checksum])
+  defp bytes_to_encode(bytes, true) do
+    checksum = <<checksum_for_bitstring(bytes)::integer-size(8)>>
+    encode_bitstring_binary(bytes, <<>>, checksum)
   end
+  defp bytes_to_encode(bytes, _with_checksum) do
+    encode_bitstring_binary(bytes, <<>>, <<>>)
+  end
+
+  defp encode_bitstring_binary(<<>>, acc, checksum), do: <<acc::binary, checksum::binary>>
+
+  # Append complete output blocks directly to avoid a per-symbol reversed charlist.
+  defp encode_bitstring_binary(
+         <<v1::integer-size(5), v2::integer-size(5), v3::integer-size(5),
+           v4::integer-size(5), v5::integer-size(5), v6::integer-size(5),
+           v7::integer-size(5), v8::integer-size(5), v9::integer-size(5),
+           v10::integer-size(5), v11::integer-size(5), v12::integer-size(5),
+           v13::integer-size(5), v14::integer-size(5), v15::integer-size(5),
+           v16::integer-size(5), rest::bitstring>>,
+         acc,
+         checksum
+       ) do
+    encode_bitstring_binary(
+      rest,
+      <<acc::binary, e(v1), e(v2), e(v3), e(v4), e(v5), e(v6), e(v7), e(v8),
+        e(v9), e(v10), e(v11), e(v12), e(v13), e(v14), e(v15), e(v16)>>,
+      checksum
+    )
+  end
+
+  defp encode_bitstring_binary(<<value::integer-size(5), rest::bitstring>>, acc, checksum) do
+    encode_bitstring_binary(rest, <<acc::binary, e(value)>>, checksum)
+  end
+
+  defp encode_bitstring_binary(<<value::integer-size(4)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 1)), checksum::binary>>
+
+  defp encode_bitstring_binary(<<value::integer-size(3)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 2)), checksum::binary>>
+
+  defp encode_bitstring_binary(<<value::integer-size(2)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 3)), checksum::binary>>
+
+  defp encode_bitstring_binary(<<value::integer-size(1)>>, acc, checksum),
+    do: <<acc::binary, e(bsl(value, 4)), checksum::binary>>
 
   defp encode_bitstring(<<>>, encoded), do: encoded
 
